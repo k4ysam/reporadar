@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS evaluations (
     novelty_score         REAL,
     explainability_score  REAL,
     overall_score         REAL,
+    growth_pct            REAL,
     approved              INTEGER,
     telegram_message_id   INTEGER,
     reviewed_at           TEXT,

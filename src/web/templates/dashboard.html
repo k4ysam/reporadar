@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar — {{ today }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>RepoRadar</h1>
+    <span class="date">{{ today }}</span>
+  </header>
+
+  <main>
+    <!-- Section 1: Today's scans -->
+    <section>
+      <h2>Scanned today
+        {% if scans %}<span class="count">{{ scans|length }}</span>{% endif %}
+      </h2>
+      {% if scans %}
+      <table>
+        <thead>
+          <tr>
+            <th>Repo</th>
+            <th class="num">Stars</th>
+            <th class="num">Growth</th>
+            <th>First seen</th>
+            <th>Last scan</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in scans %}
+          <tr>
+            <td><a href="{{ row.github_url }}" target="_blank" rel="noopener">{{ row.full_name }}</a></td>
+            <td class="num">{{ row.stars | default('—') }}</td>
+            <td class="num">
+              {% if row.growth_pct %}
+                <span class="badge {{ 'badge-high' if row.growth_pct >= 300 else ('badge-mid' if row.growth_pct >= 100 else 'badge-low') }}">
+                  +{{ row.growth_pct | int }}%
+                </span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ row.first_seen_at }}</td>
+            <td>{{ row.last_scan_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No scans today — run <code>python -m src scan</code></p>
+      {% endif %}
+    </section>
+
+    <!-- Section 2: Claude evaluations -->
+    <section>
+      <h2>Evaluations
+        {% if evaluations %}<span class="count">{{ evaluations|length }}</span>{% endif %}
+      </h2>
+      {% if evaluations %}
+        {% for ev in evaluations %}
+        <div class="card">
+          <div class="card-header">
+            <a href="{{ ev.github_url }}" target="_blank" rel="noopener" class="repo-name">{{ ev.full_name }}</a>
+            <div class="scores">
+              <span class="score {{ score_class(ev.novelty_score) }}" title="Novelty">N {{ ev.novelty_score }}</span>
+              <span class="score {{ score_class(ev.explainability_score) }}" title="Explainability">E {{ ev.explainability_score }}</span>
+              <span class="score {{ score_class(ev.overall_score) }}" title="Overall">⭐ {{ ev.overall_score }}</span>
+            </div>
+            <span class="status status-{{ ev.status }}">{{ ev.status }}</span>
+          </div>
+          {% if ev.growth_pct %}
+          <div class="stat-line">+{{ ev.growth_pct | int }}% in 48hrs</div>
+          {% endif %}
+          <p class="summary">{{ ev.summary }}</p>
+          <p class="why"><strong>Why now:</strong> {{ ev.why_interesting }}</p>
+          <p class="audience"><strong>For:</strong> {{ ev.audience }}</p>
+          <div class="card-footer">Evaluated {{ ev.evaluated_at }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="empty">No evaluations today — run <code>python -m src evaluate</code></p>
+      {% endif %}
+    </section>
+
+    <!-- Section 3: Recent pipeline runs -->
+    <section>
+      <h2>Recent runs</h2>
+      {% if runs %}
+      <table>
+        <thead>
+          <tr>
+            <th>Run ID</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th>Duration</th>
+            <th>Error</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+          <tr>
+            <td class="mono">{{ run.run_id_short }}…</td>
+            <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
+            <td>{{ run.started_at }}</td>
+            <td>{{ run.duration or '—' }}</td>
+            <td class="error-msg">{{ run.error_message or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No pipeline runs recorded yet.</p>
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>
