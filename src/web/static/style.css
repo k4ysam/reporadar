@@ -107,6 +107,53 @@ a:hover { text-decoration: underline; }
 .status-running      { background: #1f3044; color: #58a6ff; }
 .status-failed       { background: #3a1414; color: #f85149; }
 
+/* Scan controls */
+.controls-section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.scan-form { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.window-picker { display: flex; align-items: center; gap: 0.35rem; }
+.picker-label { font-size: 0.8rem; color: #8b949e; margin-right: 0.25rem; }
+.day-btn {
+  background: #21262d;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.day-btn:hover { background: #30363d; color: #e6edf3; }
+.day-btn.active { background: #1f3044; color: #58a6ff; border-color: #1f6feb; }
+.scan-btn {
+  background: #238636;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.scan-btn:hover { background: #2ea043; }
+.flash {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+}
+.flash-ok  { background: #1a4a1a; color: #3fb950; }
+.flash-err { background: #3a1414; color: #f85149; }
+
 .empty { color: #8b949e; font-size: 0.9rem; padding: 1rem 0; }
 .empty code { background: #21262d; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
 .error-msg { color: #f85149; font-size: 0.8rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

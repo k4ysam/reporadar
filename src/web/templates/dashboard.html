@@ -13,6 +13,30 @@
   </header>
 
   <main>
+    <!-- Scan controls -->
+    <section class="controls-section">
+      <form method="POST" action="/scan" class="scan-form">
+        <div class="window-picker">
+          <span class="picker-label">Window</span>
+          {% for d in [1, 2, 3, 4, 5, 7] %}
+          <button type="submit" name="window_days" value="{{ d }}"
+                  class="day-btn {% if d == window_days %}active{% endif %}">
+            {{ d }}d
+          </button>
+          {% endfor %}
+        </div>
+        <button type="submit" name="window_days" value="{{ window_days }}" class="scan-btn">
+          Scan Now
+        </button>
+      </form>
+      {% if message %}
+      <div class="flash flash-ok">{{ message }}</div>
+      {% endif %}
+      {% if error %}
+      <div class="flash flash-err">{{ error }}</div>
+      {% endif %}
+    </section>
+
     <!-- Section 1: Today's scans -->
     <section>
       <h2>Scanned today
@@ -48,11 +72,11 @@
         </tbody>
       </table>
       {% else %}
-      <p class="empty">No scans today — run <code>python -m src scan</code></p>
+      <p class="empty">No scans today — click <strong>Scan Now</strong> above or run <code>python -m src scan</code></p>
       {% endif %}
     </section>
 
-    <!-- Section 2: Claude evaluations -->
+    <!-- Section 2: Evaluations -->
     <section>
       <h2>Evaluations
         {% if evaluations %}<span class="count">{{ evaluations|length }}</span>{% endif %}
@@ -70,7 +94,7 @@
             <span class="status status-{{ ev.status }}">{{ ev.status }}</span>
           </div>
           {% if ev.growth_pct %}
-          <div class="stat-line">+{{ ev.growth_pct | int }}% in 48hrs</div>
+          <div class="stat-line">+{{ ev.growth_pct | int }}% over window</div>
           {% endif %}
           <p class="summary">{{ ev.summary }}</p>
           <p class="why"><strong>Why now:</strong> {{ ev.why_interesting }}</p>

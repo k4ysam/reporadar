@@ -15,6 +15,8 @@ class Settings(BaseModel):
     db_path: str = "reporadar.db"
     max_candidates_per_run: int = 15
     max_evaluations_per_run: int = 5
+    gemini_daily_limit: int = 20
+    repo_max_age_days: int = 365
     star_growth_min_pct: float = 200.0
     star_base_min: int = 20
     velocity_window_hours: int = 48
@@ -41,6 +43,8 @@ class Settings(BaseModel):
             db_path=os.environ.get("DB_PATH", "reporadar.db"),
             max_candidates_per_run=int(os.environ.get("MAX_CANDIDATES_PER_RUN", "15")),
             max_evaluations_per_run=int(os.environ.get("MAX_EVALUATIONS_PER_RUN", "5")),
+            gemini_daily_limit=int(os.environ.get("GEMINI_DAILY_LIMIT", "20")),
+            repo_max_age_days=int(os.environ.get("REPO_MAX_AGE_DAYS", "365")),
             star_growth_min_pct=float(os.environ.get("STAR_GROWTH_MIN_PCT", "200")),
             star_base_min=int(os.environ.get("STAR_BASE_MIN", "20")),
             velocity_window_hours=int(os.environ.get("VELOCITY_WINDOW_HOURS", "48")),

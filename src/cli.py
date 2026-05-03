@@ -143,7 +143,7 @@ def cmd_serve(args, settings, db: sqlite3.Connection) -> int:
     from src.web.app import create_app
 
     db.close()
-    app = create_app(settings.db_path)
+    app = create_app(settings.db_path, settings)
     host = getattr(args, "host", "127.0.0.1")
     port = getattr(args, "port", 8000)
     debug = getattr(args, "debug", False)

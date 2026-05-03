@@ -21,6 +21,19 @@ def init_db(db_path: str) -> None:
     conn.close()
 
 
+def get_app_setting(conn: sqlite3.Connection, key: str, default: str | None = None) -> str | None:
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_app_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)",
+        (key, value),
+    )
+    conn.commit()
+
+
 def log_api_call(
     conn: sqlite3.Connection,
     run_id: str,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from src.config import Settings
 from src.models import Candidate
@@ -23,10 +23,11 @@ def scan(
     if remaining < 500:
         return []
 
-    yesterday = (datetime.now(timezone.utc).date()).isoformat()
+    window_start = (datetime.now(timezone.utc) - timedelta(hours=config.velocity_window_hours)).date().isoformat()
+    max_age_cutoff = (datetime.now(timezone.utc) - timedelta(days=config.repo_max_age_days)).date().isoformat()
     queries = [
-        f"created:>{yesterday} stars:>={config.star_base_min} sort:stars-desc",
-        f"pushed:>{yesterday} stars:>={config.star_base_min} sort:updated",
+        f"created:>{window_start} stars:>={config.star_base_min} sort:stars-desc",
+        f"pushed:>{window_start} created:>{max_age_cutoff} stars:>={config.star_base_min} sort:updated",
     ]
 
     seen_names: set[str] = set()

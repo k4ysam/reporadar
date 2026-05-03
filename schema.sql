@@ -62,6 +62,11 @@ CREATE TABLE IF NOT EXISTS api_calls (
     called_at   TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_repos_seen_full_name    ON repos_seen(full_name);
 CREATE INDEX IF NOT EXISTS idx_evaluations_run_id      ON evaluations(run_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_approved    ON evaluations(approved);
