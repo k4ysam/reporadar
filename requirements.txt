@@ -1,0 +1,17 @@
+# Phase 1 — core pipeline
+anthropic>=0.40.0
+requests>=2.31
+pydantic>=2.0
+python-dotenv>=1.0
+pytest>=8.0
+responses>=0.25
+flask>=3.0
+
+# Phase 2 — add when starting Telegram
+# python-telegram-bot>=21.0
+# pytest-asyncio>=0.23
+
+# Phase 3 — add when starting publishing
+# Pillow>=10.0
+# apscheduler>=3.10
+# boto3>=1.34
