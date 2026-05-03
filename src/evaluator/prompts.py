@@ -47,3 +47,8 @@ def build_user_prompt_blocks(candidate: Candidate, ctx: RepoContext) -> list[dic
         blocks.append({"type": "text", "text": issues_text})
 
     return blocks
+
+
+def blocks_to_text(blocks: list[dict]) -> str:
+    """Flatten content blocks to a single string for non-Anthropic LLMs."""
+    return "\n\n".join(b["text"] for b in blocks if "text" in b)

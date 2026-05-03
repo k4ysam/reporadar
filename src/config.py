@@ -10,8 +10,8 @@ load_dotenv()
 
 class Settings(BaseModel):
     gh_token: str
-    anthropic_api_key: str
-    anthropic_model: str = "claude-sonnet-4-6"
+    gemini_api_key: str
+    llm_model: str = "gemini-2.0-flash"
     db_path: str = "reporadar.db"
     max_candidates_per_run: int = 15
     max_evaluations_per_run: int = 5
@@ -19,7 +19,7 @@ class Settings(BaseModel):
     star_base_min: int = 20
     velocity_window_hours: int = 48
 
-    @field_validator("gh_token", "anthropic_api_key")
+    @field_validator("gh_token", "gemini_api_key")
     @classmethod
     def must_be_set(cls, v: str, info) -> str:
         if not v:
@@ -28,7 +28,7 @@ class Settings(BaseModel):
 
     @classmethod
     def from_env(cls) -> "Settings":
-        missing = [k for k in ("GH_TOKEN", "ANTHROPIC_API_KEY") if not os.environ.get(k)]
+        missing = [k for k in ("GH_TOKEN", "GEMINI_API_KEY") if not os.environ.get(k)]
         if missing:
             raise RuntimeError(
                 f"Missing required environment variables: {', '.join(missing)}\n"
@@ -36,8 +36,8 @@ class Settings(BaseModel):
             )
         return cls(
             gh_token=os.environ["GH_TOKEN"],
-            anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
-            anthropic_model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            gemini_api_key=os.environ["GEMINI_API_KEY"],
+            llm_model=os.environ.get("LLM_MODEL", "gemini-2.0-flash"),
             db_path=os.environ.get("DB_PATH", "reporadar.db"),
             max_candidates_per_run=int(os.environ.get("MAX_CANDIDATES_PER_RUN", "15")),
             max_evaluations_per_run=int(os.environ.get("MAX_EVALUATIONS_PER_RUN", "5")),

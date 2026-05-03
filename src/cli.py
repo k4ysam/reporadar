@@ -46,8 +46,9 @@ def cmd_scan(args, settings, db: sqlite3.Connection) -> int:
 
 
 def cmd_evaluate(args, settings, db: sqlite3.Connection) -> int:
-    import anthropic
+    import google.generativeai as genai
     from src.evaluator.batch import evaluate_candidates
+    from src.evaluator.prompts import SYSTEM_PROMPT
     from src.scanner.github_client import GithubClient
     from src.logger import get_logger
 
@@ -100,10 +101,14 @@ def cmd_evaluate(args, settings, db: sqlite3.Connection) -> int:
                 continue
 
         gh_client = GithubClient(db, run_id, settings.gh_token)
-        anthropic_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        genai.configure(api_key=settings.gemini_api_key)
+        llm_client = genai.GenerativeModel(
+            model_name=settings.llm_model,
+            system_instruction=SYSTEM_PROMPT,
+        )
 
         log.info("Evaluating %d candidates", len(candidates))
-        evaluations = evaluate_candidates(candidates, anthropic_client, gh_client, db, run_id, settings)
+        evaluations = evaluate_candidates(candidates, llm_client, gh_client, db, run_id, settings)
 
         db.execute(
             "UPDATE pipeline_runs SET status='completed', completed_at=? WHERE run_id=?",

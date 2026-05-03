@@ -11,7 +11,7 @@ from src.models import Candidate
 
 
 def _settings():
-    return Settings(gh_token="tok", anthropic_api_key="sk", max_evaluations_per_run=2)
+    return Settings(gh_token="tok", gemini_api_key="AIza-test", max_evaluations_per_run=2)
 
 
 def _candidate(repo_id: int, full_name: str):
@@ -41,9 +41,9 @@ GOOD_JSON = json.dumps({
 })
 
 
-def _mock_anthropic():
+def _mock_llm():
     client = MagicMock()
-    client.messages.create.return_value = MagicMock(content=[MagicMock(text=GOOD_JSON)])
+    client.generate_content.return_value = MagicMock(text=GOOD_JSON)
     return client
 
 
@@ -64,7 +64,7 @@ def test_max_evaluations_cap(tmp_db, mock_run_id):
     tmp_db.commit()
     candidates = [_candidate(i, f"owner/repo-{i}") for i in range(1, 6)]
     from src.evaluator.batch import evaluate_candidates
-    results = evaluate_candidates(candidates, _mock_anthropic(), _mock_github(), tmp_db, mock_run_id, _settings())
+    results = evaluate_candidates(candidates, _mock_llm(), _mock_github(), tmp_db, mock_run_id, _settings())
     assert len(results) <= 2
 
 
@@ -84,7 +84,7 @@ def test_seven_day_dedup(tmp_db, mock_run_id):
     tmp_db.commit()
     candidates = [_candidate(1, "owner/repo-1")]
     from src.evaluator.batch import evaluate_candidates
-    results = evaluate_candidates(candidates, _mock_anthropic(), _mock_github(), tmp_db, mock_run_id, _settings())
+    results = evaluate_candidates(candidates, _mock_llm(), _mock_github(), tmp_db, mock_run_id, _settings())
     assert results == []
 
 
@@ -96,12 +96,12 @@ def test_exception_isolation(tmp_db, mock_run_id):
         (mock_run_id,),
     )
     tmp_db.commit()
-    anthropic_client = MagicMock()
-    anthropic_client.messages.create.side_effect = [
-        Exception("Claude exploded"),
-        MagicMock(content=[MagicMock(text=GOOD_JSON)]),
+    llm_client = MagicMock()
+    llm_client.generate_content.side_effect = [
+        Exception("LLM exploded"),
+        MagicMock(text=GOOD_JSON),
     ]
     candidates = [_candidate(i, f"owner/repo-{i}") for i in range(1, 3)]
     from src.evaluator.batch import evaluate_candidates
-    results = evaluate_candidates(candidates, anthropic_client, _mock_github(), tmp_db, mock_run_id, _settings())
+    results = evaluate_candidates(candidates, llm_client, _mock_github(), tmp_db, mock_run_id, _settings())
     assert len(results) == 1

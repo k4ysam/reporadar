@@ -11,7 +11,7 @@ from src.models import Candidate
 
 
 def _settings():
-    return Settings(gh_token="tok", anthropic_api_key="sk", anthropic_model="claude-sonnet-4-6")
+    return Settings(gh_token="tok", gemini_api_key="AIza-test", llm_model="gemini-2.0-flash")
 
 
 def _candidate():
@@ -26,15 +26,9 @@ def _candidate():
     )
 
 
-def _mock_response(text: str):
-    msg = MagicMock()
-    msg.content = [MagicMock(text=text)]
-    return msg
-
-
-def _mock_anthropic(response_text: str):
+def _mock_llm(response_text: str):
     client = MagicMock()
-    client.messages.create.return_value = _mock_response(response_text)
+    client.generate_content.return_value = MagicMock(text=response_text)
     return client
 
 
@@ -79,7 +73,7 @@ class TestEvaluateCandidate:
         tmp_db.commit()
         from src.evaluator.evaluator import evaluate_candidate
         result = evaluate_candidate(
-            _candidate(), _mock_anthropic(GOOD_JSON), _mock_github(),
+            _candidate(), _mock_llm(GOOD_JSON), _mock_github(),
             tmp_db, mock_run_id, _settings(),
         )
         assert result.summary == "A blazing-fast KV store."
@@ -94,7 +88,7 @@ class TestEvaluateCandidate:
         tmp_db.commit()
         from src.evaluator.evaluator import evaluate_candidate
         evaluate_candidate(
-            _candidate(), _mock_anthropic(GOOD_JSON), _mock_github(),
+            _candidate(), _mock_llm(GOOD_JSON), _mock_github(),
             tmp_db, mock_run_id, _settings(),
         )
         row = tmp_db.execute("SELECT approved, claude_raw_response FROM evaluations").fetchone()
@@ -111,7 +105,7 @@ class TestEvaluateCandidate:
         fenced = f"```json\n{GOOD_JSON}\n```"
         from src.evaluator.evaluator import evaluate_candidate
         result = evaluate_candidate(
-            _candidate(), _mock_anthropic(fenced), _mock_github(),
+            _candidate(), _mock_llm(fenced), _mock_github(),
             tmp_db, mock_run_id, _settings(),
         )
         assert result.novelty_score == 8.0
@@ -129,7 +123,7 @@ class TestEvaluateCandidate:
         })
         from src.evaluator.evaluator import evaluate_candidate
         result = evaluate_candidate(
-            _candidate(), _mock_anthropic(integer_json), _mock_github(),
+            _candidate(), _mock_llm(integer_json), _mock_github(),
             tmp_db, mock_run_id, _settings(),
         )
         assert isinstance(result.overall_score, float)
@@ -141,15 +135,15 @@ class TestEvaluateCandidate:
             (mock_run_id,),
         )
         tmp_db.commit()
-        anthropic_client = MagicMock()
-        anthropic_client.messages.create.side_effect = [
-            _mock_response("not json at all"),
-            _mock_response(GOOD_JSON),
+        llm_client = MagicMock()
+        llm_client.generate_content.side_effect = [
+            MagicMock(text="not json at all"),
+            MagicMock(text=GOOD_JSON),
         ]
         from src.evaluator.evaluator import evaluate_candidate
         result = evaluate_candidate(
-            _candidate(), anthropic_client, _mock_github(),
+            _candidate(), llm_client, _mock_github(),
             tmp_db, mock_run_id, _settings(),
         )
-        assert anthropic_client.messages.create.call_count == 2
+        assert llm_client.generate_content.call_count == 2
         assert result.summary == "A blazing-fast KV store."

@@ -12,7 +12,7 @@ from src.scanner.scanner import scan
 def _settings():
     return Settings(
         gh_token="tok",
-        anthropic_api_key="sk",
+        gemini_api_key="AIza-test",
         star_base_min=20,
         star_growth_min_pct=200.0,
         velocity_window_hours=48,
