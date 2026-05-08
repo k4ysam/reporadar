@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.config import Settings
-from src.llm.provider import ClaudeProvider, GeminiProvider, get_provider
+from src.llm.provider import ClaudeProvider, GeminiProvider, OpenAIProvider, get_provider
 
 
 def _seed_run(db, run_id):
@@ -36,6 +38,21 @@ def test_get_provider_returns_claude(tmp_db, mock_run_id):
     assert isinstance(provider, ClaudeProvider)
     assert provider.name == "claude"
     anth.assert_called_once_with(api_key="sk-ant-x")
+
+
+def test_get_provider_returns_openai(tmp_db, mock_run_id, monkeypatch):
+    _seed_run(tmp_db, mock_run_id)
+    settings = Settings(
+        gh_token="x", openai_api_key="sk-test", llm_provider="openai"
+    )
+    openai_cls = MagicMock()
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=openai_cls))
+
+    provider = get_provider(settings, tmp_db, mock_run_id)
+
+    assert isinstance(provider, OpenAIProvider)
+    assert provider.name == "openai"
+    openai_cls.assert_called_once_with(api_key="sk-test")
 
 
 def test_claude_provider_logs_api_call(tmp_db, mock_run_id):
@@ -81,3 +98,29 @@ def test_gemini_provider_logs_api_call(tmp_db, mock_run_id):
         "SELECT service FROM api_calls WHERE service='gemini'"
     ).fetchone()
     assert row["service"] == "gemini"
+
+
+def test_openai_provider_logs_api_call(tmp_db, mock_run_id, monkeypatch):
+    _seed_run(tmp_db, mock_run_id)
+    client_mock = MagicMock()
+    resp = SimpleNamespace(output_text="hello")
+    client_mock.responses.create.return_value = resp
+    openai_cls = MagicMock(return_value=client_mock)
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=openai_cls))
+
+    provider = OpenAIProvider(tmp_db, mock_run_id, "sk-test", "gpt-5.4-mini")
+    result = provider.generate("Hi", system="be brief")
+
+    assert result == "hello"
+    client_mock.responses.create.assert_called_once_with(
+        model="gpt-5.4-mini",
+        input="Hi",
+        max_output_tokens=1024,
+        instructions="be brief",
+    )
+    row = tmp_db.execute(
+        "SELECT service, endpoint, status_code FROM api_calls WHERE service='openai'"
+    ).fetchone()
+    assert row["service"] == "openai"
+    assert row["endpoint"] == "responses.create"
+    assert row["status_code"] == 200

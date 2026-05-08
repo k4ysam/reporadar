@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Fully-automated Instagram-publishing pipeline driven by the [PRD](prd.md). No human in the loop after setup. Discovers GitHub repos via Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude or Gemini), generates captions, renders 1080×1080 JPEGs via Playwright, uploads to S3/R2, publishes via the IG Graph API. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
+Fully-automated Instagram-publishing pipeline driven by the [PRD](prd.md). No human in the loop after setup. Discovers GitHub repos via Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, renders 1080×1080 JPEGs via Playwright, uploads to S3/R2, publishes via the IG Graph API. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
 
 ## Commands
 
@@ -33,7 +33,7 @@ pytest tests/render/test_renderer.py -q       # one file
 
 ### LLM provider abstraction (`src/llm/provider.py`)
 
-`LLM_PROVIDER=claude|gemini` selects between `ClaudeProvider` (anthropic SDK) and `GeminiProvider` (google-generativeai SDK). Both expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
+`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
 
 ### Discovery (`src/sources/`)
 

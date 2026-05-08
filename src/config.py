@@ -8,7 +8,7 @@ from pydantic import BaseModel, field_validator, model_validator
 
 load_dotenv()
 
-LLMProviderName = Literal["claude", "gemini"]
+LLMProviderName = Literal["claude", "gemini", "openai"]
 
 
 class Settings(BaseModel):
@@ -25,8 +25,10 @@ class Settings(BaseModel):
     llm_provider: LLMProviderName = "gemini"
     anthropic_api_key: str | None = None
     gemini_api_key: str | None = None
+    openai_api_key: str | None = None
     claude_model: str = "claude-sonnet-4-6"
     gemini_model: str = "gemini-2.0-flash"
+    openai_model: str = "gpt-5.4-mini"
     max_evaluations_per_run: int = 5
     llm_daily_limit: int = 20
 
@@ -57,7 +59,11 @@ class Settings(BaseModel):
     # --- legacy aliases retained for tests ---
     @property
     def llm_model(self) -> str:
-        return self.claude_model if self.llm_provider == "claude" else self.gemini_model
+        if self.llm_provider == "claude":
+            return self.claude_model
+        if self.llm_provider == "openai":
+            return self.openai_model
+        return self.gemini_model
 
     @property
     def gemini_daily_limit(self) -> int:
@@ -76,14 +82,16 @@ class Settings(BaseModel):
             raise ValueError("LLM_PROVIDER=claude requires ANTHROPIC_API_KEY")
         if self.llm_provider == "gemini" and not self.gemini_api_key:
             raise ValueError("LLM_PROVIDER=gemini requires GEMINI_API_KEY")
+        if self.llm_provider == "openai" and not self.openai_api_key:
+            raise ValueError("LLM_PROVIDER=openai requires OPENAI_API_KEY")
         return self
 
     @classmethod
     def from_env(cls) -> "Settings":
         provider_raw = os.environ.get("LLM_PROVIDER", "gemini").lower().strip()
-        if provider_raw not in ("claude", "gemini"):
+        if provider_raw not in ("claude", "gemini", "openai"):
             raise RuntimeError(
-                f"LLM_PROVIDER must be 'claude' or 'gemini' (got {provider_raw!r})"
+                f"LLM_PROVIDER must be 'claude', 'gemini', or 'openai' (got {provider_raw!r})"
             )
 
         if not os.environ.get("GH_TOKEN"):
@@ -104,8 +112,10 @@ class Settings(BaseModel):
             llm_provider=provider_raw,
             anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY"),
             gemini_api_key=os.environ.get("GEMINI_API_KEY"),
+            openai_api_key=os.environ.get("OPENAI_API_KEY"),
             claude_model=os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-6"),
             gemini_model=os.environ.get("GEMINI_MODEL") or os.environ.get("LLM_MODEL", "gemini-2.0-flash"),
+            openai_model=os.environ.get("OPENAI_MODEL") or os.environ.get("LLM_MODEL", "gpt-5.4-mini"),
             max_evaluations_per_run=int(os.environ.get("MAX_EVALUATIONS_PER_RUN", "5")),
             llm_daily_limit=int(
                 os.environ.get("LLM_DAILY_LIMIT")

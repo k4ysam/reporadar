@@ -9,6 +9,12 @@ import pytest
 from src.models import Caption, Evaluation, HackathonCandidate
 from src.render.renderer import render_html, render_hackathon_carousel, render_repo_card
 
+_VALID_1X1_PNG = bytes.fromhex(
+    "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+    "1f15c4890000000d49444154789c63f8ffffff7f0009fb03fd2a86e38a"
+    "0000000049454e44ae426082"
+)
+
 
 def _eval():
     return Evaluation(
@@ -65,7 +71,7 @@ def test_render_repo_card_invokes_playwright(tmp_path):
     fake_context.new_page.return_value = fake_page
 
     def fake_screenshot(path, **kwargs):
-        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+        Path(path).write_bytes(_VALID_1X1_PNG)
     fake_page.screenshot.side_effect = fake_screenshot
 
     fake_p = MagicMock()
@@ -105,7 +111,7 @@ def test_render_carousel_makes_four_slides(tmp_path):
     fake_context.new_page.return_value = fake_page
 
     def fake_screenshot(path, **kwargs):
-        Path(path).write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+        Path(path).write_bytes(_VALID_1X1_PNG)
     fake_page.screenshot.side_effect = fake_screenshot
 
     fake_p = MagicMock()

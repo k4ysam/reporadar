@@ -32,9 +32,10 @@ Fill in the keys you have. Minimum to scan + evaluate: `GH_TOKEN` plus one LLM k
 | Variable | Required for | Where |
 |---|---|---|
 | `GH_TOKEN` | scanning | github.com → Settings → Developer Settings → PAT (no scopes needed for public repos) |
-| `LLM_PROVIDER` | evaluation | `claude` or `gemini` |
+| `LLM_PROVIDER` | evaluation | `claude`, `gemini`, or `openai` |
 | `ANTHROPIC_API_KEY` | `LLM_PROVIDER=claude` | console.anthropic.com |
 | `GEMINI_API_KEY` | `LLM_PROVIDER=gemini` | aistudio.google.com |
+| `OPENAI_API_KEY` | `LLM_PROVIDER=openai` | platform.openai.com |
 | `IG_ACCESS_TOKEN` | publishing | Meta Developer dashboard, long-lived Page token |
 | `IG_BUSINESS_ACCOUNT_ID` | publishing | linked IG Business account |
 | `IG_APP_ID` / `IG_APP_SECRET` | token refresh | Meta app settings |
@@ -82,7 +83,7 @@ src/
 ├── db.py               sqlite3 conn, init_db, log_api_call (per-provider budget tracking)
 ├── models.py           Pydantic frozen contracts: Candidate, HackathonCandidate, Evaluation, Caption, RenderResult, PublishedPost
 ├── llm/
-│   └── provider.py     LLMProvider protocol + ClaudeProvider, GeminiProvider, get_provider(settings)
+│   └── provider.py     LLMProvider protocol + ClaudeProvider, GeminiProvider, OpenAIProvider, get_provider(settings)
 ├── sources/
 │   ├── github_repos/   Star-velocity scanner (preserved from previous build)
 │   └── devpost/        BeautifulSoup scraper, robots.txt-respectful, rate-limited
@@ -120,7 +121,7 @@ src/
 - `hackathon_projects` — natural key `devpost_url`.
 - `evaluations` — `content_type ∈ {repo, hackathon}`, FKs to either source. `skip` boolean from the LLM.
 - `posts` — `media_type ∈ {single, carousel}`. `card_paths` + `image_host_urls` are JSON arrays. `status` lifecycle: `pending → rendered → uploaded → published` (or `failed`).
-- `api_calls` — source of truth for daily LLM budget. Service column is `claude` / `gemini` / `github` / `devpost` / `instagram`.
+- `api_calls` — source of truth for daily LLM budget. Service column is `claude` / `gemini` / `openai` / `github` / `devpost` / `instagram`.
 
 ## Tests
 
