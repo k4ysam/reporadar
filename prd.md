@@ -2,13 +2,6 @@
 
 A fully automated content pipeline that discovers trending GitHub repositories and standout hackathon projects, evaluates them for genuine signal, and publishes polished Instagram posts — zero human in the loop.
 
-| | |
-|---|---|
-| **Status** | Draft v1.0 |
-| **Date** | May 2026 |
-| **Target launch** | v1 in ~3 weeks |
-| **Automation** | 100% (post-setup) |
-
 ---
 
 ## Problem
@@ -53,11 +46,6 @@ LLM generates caption (hook line, body, CTA, hashtags) using a template per cont
 
 `Puppeteer` `HTML-to-image` `carousel`
 
-### 6. Instagram publish
-Posts via the official Instagram Graph API using a Business account linked to a Facebook Page. Supports image posts and carousels. Posting times are varied within a ±15-minute window of target time to avoid pattern detection. Token refresh is automated. A post-publish log entry is written to the seen-store.
-
-`Graph API` `long-lived token` `Business account`
-
 ---
 
 ## Content schedule
@@ -67,28 +55,6 @@ Posts via the official Instagram Graph API using a Business account linked to a 
 | **Monday** | GitHub repo | Trending repo of the week — code card visual, single image post |
 | **Wednesday** | Hackathon | Standout hackathon project — carousel format, "Built in X hours" hook |
 | **Friday** | GitHub repo | Second repo of the week — code card visual, single image post |
-
----
-
-## Success metrics (90 days)
-
-| Metric | Target |
-|---|---|
-| Followers | 1k+ |
-| Posts skipped by error | <5% |
-| Avg engagement rate | 4%+ |
-| API violations / flags | 0 |
-
----
-
-## Competitive landscape
-
-| Competitor | Description | Gap |
-|---|---|---|
-| TLDR / daily.dev | Human-curated dev content, newsletter-first. No Instagram presence. | No overlap |
-| ByteByteGo | System design focused. Instagram presence but manually produced. | Adjacent |
-| Devpost itself | Has social accounts but posts inconsistently, no editorial filter. | No overlap |
-| GitHub trending bots | Twitter bots that just list repos. No evaluation, no Instagram, no visuals. | No overlap |
 
 ---
 
@@ -112,35 +78,6 @@ Posts via the official Instagram Graph API using a Business account linked to a 
 - **HackerNews "Show HN" source** — HN's Show HN feed is rich with indie builders. Same pipeline, new source. Adds a different demographic (solo hackers vs. hackathon teams).
 - **B2B intel reports** — Sell the weekly trend-scouting output as a structured report to dev tool companies. Same data, different packaging. Subscription model, high margin.
 - **Web destination** — Each post becomes a page on a website. SEO surface for "best hackathon projects 2026" type queries. Long-term moat that Instagram alone can't build.
-
----
-
-## Build phases
-
-### Phase 1 — Core loop (Week 1)
-- GitHub Search API integration + dedup store
-- LLM evaluator prompt + scoring
-- Caption generator (repo template)
-- Manual Instagram post (validate output quality)
-
-### Phase 2 — Visuals + publish (Week 2)
-- Puppeteer HTML-to-image code card renderer
-- Instagram Graph API integration + token refresh
-- GitHub trending scraper (secondary source)
-- Full automated repo → post loop live
-
-### Phase 3 — Hackathon source (Week 3)
-- Devpost scraper + hackathon evaluator prompt
-- Carousel post format + slide generator
-- Content-type classifier routing
-- Mixed schedule (Mon repo / Wed hackathon / Fri repo)
-
-### Phase 4 — Sandbox trial (Week 4+)
-- Docker sandbox for CLI tool execution
-- Playwright demo screenshot for hackathon projects
-- Graceful fallback if trial fails
-
----
 
 ## Out of scope (v1)
 
