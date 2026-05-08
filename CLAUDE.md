@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Fully-automated Instagram-publishing pipeline driven by the [PRD](prd.md). No human in the loop after setup. Discovers GitHub repos via Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, renders 1080×1080 JPEGs via Playwright, uploads to S3/R2, publishes via the IG Graph API. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
+Discovery + post-generation pipeline for promising open-source projects. Discovers GitHub repos via the Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, and renders 1080×1080 JPEGs via Playwright. **Posts are saved locally for human review** — no automatic upload or publishing. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
 
 ## Commands
 
@@ -14,7 +14,7 @@ All assume venv active and `.env` populated (see `.env.template`).
 python -m src scan-repos        # GitHub Search API → repos_seen
 python -m src scan-hackathons   # Devpost scrape → hackathon_projects
 python -m src evaluate          # LLM-evaluate unevaluated rows (per-provider daily budget)
-python -m src run               # Full pipeline for today's content type
+python -m src run               # Discover + evaluate + render + save post for today's content type
 python -m src run --day 0       # Force a weekday (0=Mon..6=Sun)
 python -m src serve             # Read-only monitoring dashboard
 python -m src daemon            # APScheduler daemon
@@ -25,11 +25,11 @@ pytest tests/sources/github_repos/ -q         # one package
 pytest tests/render/test_renderer.py -q       # one file
 ```
 
-`reporadar.db` is auto-created from `schema.sql` on every CLI invocation via `init_db()` (idempotent — `CREATE TABLE IF NOT EXISTS`).
+`reporadar.db` is auto-created from `schema.sql` on every CLI invocation via `init_db()` (idempotent — `CREATE TABLE IF NOT EXISTS`). Rendered images land in `settings.output_dir` (default `output/`).
 
 ## Architecture
 
-**Single SQLite DB underpins five stages: discovery → eval → caption → render → publish.** All stages share `Settings` (`src/config.py`, loaded from `.env` via `Settings.from_env()`). Every CLI invocation creates a UUID `run_id` row in `pipeline_runs`; downstream rows in `evaluations`, `posts`, `api_calls` reference it.
+**Single SQLite DB underpins four stages: discovery → eval → caption → render.** All stages share `Settings` (`src/config.py`, loaded from `.env` via `Settings.from_env()`). Every CLI invocation creates a UUID `run_id` row in `pipeline_runs`; downstream rows in `evaluations`, `posts`, `api_calls` reference it.
 
 ### LLM provider abstraction (`src/llm/provider.py`)
 
@@ -49,33 +49,32 @@ pytest tests/render/test_renderer.py -q       # one file
 
 ### Caption + Render (`src/caption/`, `src/render/`)
 
-- `generate_repo_caption` / `generate_hackathon_caption` — provider-agnostic, returns a `Caption` Pydantic model. `Caption.render()` clips to ≤2,200 chars (IG limit).
+- `generate_repo_caption` / `generate_hackathon_caption` — provider-agnostic, returns a `Caption` Pydantic model. `Caption.render()` clips to ≤2,200 chars (Instagram caption limit retained as a sane upper bound).
 - `render_repo_card` produces one 1080×1080 JPEG. `render_hackathon_carousel` produces 4 slides (hook → what it does → tech stack → team/links).
 - Templates use Jinja2; CSS targets system fonts so no font binaries shipped. Renderer uses Playwright sync API + Chromium. Tests mock `sync_playwright` so they pass without browser binaries installed.
+- Rendered files persist in `settings.output_dir` for the operator to review.
 
-### Publish (`src/publisher/`)
+### Save (`src/publisher/publisher.py`)
 
-- `image_host.S3Host` is boto3-compatible (works with AWS S3, Cloudflare R2, Backblaze B2). `LocalFileHost` is dev-only fallback returning `file://` URLs (IG won't accept these — only useful with `IG_DRY_RUN=1` or a tunnel).
-- `instagram.InstagramClient` wraps Graph API: `create_image_container` → `wait_for_finished` → `publish` for single posts; carousel adds `create_child_container` per slide then a parent CAROUSEL container.
-- `publisher.publish_post` is the orchestrator: writes the `posts` row at `rendered`, idempotency-checks against existing `published` rows for same `repo_id`/`hackathon_id` (UNIQUE constraints back this up), uploads, publishes, updates status to `published` and flips source's `already_posted=1`. Retry with exponential backoff (3 attempts).
-- `IG_DRY_RUN=1` short-circuits after the `rendered` step.
-- `token_manager.check_and_alert` runs daily; logs WARN when ≤14 days to expiry. `refresh_long_lived_token` exchanges short→long-lived tokens via `/oauth/access_token`.
+`save_post` is the pipeline's hand-off step: writes the `posts` row at status `rendered`, idempotency-checks against existing rows for the same `repo_id`/`hackathon_id` (UNIQUE constraints back this up — a re-run updates the row in place), and flips the source's `already_posted=1` so subsequent runs skip it. Returns a `SavedPost` carrying `post_id`, `card_paths`, and the rendered caption.
+
+There is no upload, no Instagram client, no token management, no retry logic. The operator reviews the local JPEGs plus the `caption` column and posts manually wherever they like.
 
 ### Orchestration (`src/pipeline.py`, `src/scheduler/daemon.py`)
 
 - `run_for_today` dispatches on weekday: 0/4 → repo pipeline; 2 → hackathon pipeline.
-- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the pipeline (PRD §6 anti-pattern requirement).
+- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the pipeline.
 
 ### Read-only dashboard (`src/web/`)
 
-Stripped of scan/approval buttons. Shows: posts (with permalink + status), recent evaluations (both content types), today's repo scans, recent hackathon candidates, recent runs.
+Shows: posts awaiting review (with caption + local image paths), recent evaluations (both content types), today's repo scans, recent hackathon candidates, recent runs.
 
 ## Key data model details (`schema.sql`)
 
 - `repos_seen.full_name`, `hackathon_projects.devpost_url` are natural keys (UNIQUE). All UPSERTs hit them.
 - `evaluations` has both `repo_id` and `hackathon_id` (one is NULL); `content_type` is the discriminator.
-- `posts.repo_id` / `posts.hackathon_id` are UNIQUE — DB-level idempotency for "one published post per source".
-- `posts.status` lifecycle: `pending → rendered → uploaded → published`, or `failed`.
+- `posts.repo_id` / `posts.hackathon_id` are UNIQUE — DB-level idempotency for "one saved post per source".
+- `posts.status` lifecycle: `pending → rendered`, or `failed`.
 - `api_calls` is the source of truth for daily budget counting. New LLM calls must log via the provider's `_log_call` helper (or directly via `db.log_api_call`) or budgets break silently.
 
 ## Models (`src/models.py`)
@@ -84,6 +83,6 @@ All `frozen=True`. Don't mutate; build new instances. `Evaluation.novelty_score 
 
 ## Out of scope (deferred from PRD)
 
-- **Sandbox trial** (PRD Phase 4 — Docker for CLI tools, Playwright demo screenshots): not implemented. Add a new module under `src/render/` or a `src/sandbox/` package later.
+- **Auto-publishing to Instagram (or any other platform).** The PRD originally specified end-to-end automation through the IG Graph API; that has been removed in favor of a human review step. To reintroduce, add a publishing module under `src/publisher/` and wire it after `save_post`.
+- **Sandbox trial** (PRD Phase 4 — Docker for CLI tools, Playwright demo screenshots): not implemented.
 - **GitHub trending page scrape** (PRD §1 secondary signal): omitted; PRD risk #1 calls it brittle.
-- **Cross-platform publish** (X, LinkedIn): post-traction expansion only.

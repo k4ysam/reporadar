@@ -1,7 +1,6 @@
 """APScheduler daemon. Daily fire at SCHEDULE_HOUR ±SCHEDULE_JITTER_MINUTES.
 
-Per PRD: "Posting times are varied within a ±15-minute window of target time
-to avoid pattern detection."
+Generates a post for the day's content type and saves it locally for human review.
 """
 from __future__ import annotations
 
@@ -16,7 +15,6 @@ from apscheduler.triggers.cron import CronTrigger
 from src.config import Settings
 from src.db import get_db, init_db
 from src.pipeline import run_for_today
-from src.publisher.token_manager import check_and_alert
 
 _log = logging.getLogger(__name__)
 
@@ -34,7 +32,7 @@ def _cron_offset(schedule_hour: int, jitter_minutes: int) -> tuple[int, int]:
 def _content_job(settings: Settings) -> None:
     delay_minutes = random.randint(0, 2 * settings.schedule_jitter_minutes)
     if delay_minutes:
-        _log.info("Jitter sleep: %d min before posting", delay_minutes)
+        _log.info("Jitter sleep: %d min before generating post", delay_minutes)
         time.sleep(delay_minutes * 60)
 
     db = get_db(settings.db_path)
@@ -44,11 +42,6 @@ def _content_job(settings: Settings) -> None:
         _log.exception("Pipeline run raised: %s", exc)
     finally:
         db.close()
-
-
-def _token_job(settings: Settings) -> None:
-    status = check_and_alert(settings)
-    _log.info("Token status: %s", status)
 
 
 def build_scheduler(settings: Settings) -> BlockingScheduler:
@@ -62,15 +55,6 @@ def build_scheduler(settings: Settings) -> BlockingScheduler:
         args=[settings],
         id="content",
         name="Daily content pipeline",
-        max_instances=1,
-        coalesce=True,
-    )
-    sched.add_job(
-        _token_job,
-        CronTrigger(hour=5, minute=0, timezone=settings.timezone_name),
-        args=[settings],
-        id="token",
-        name="Daily token expiry check",
         max_instances=1,
         coalesce=True,
     )

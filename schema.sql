@@ -66,16 +66,10 @@ CREATE TABLE IF NOT EXISTS posts (
     media_type           TEXT NOT NULL DEFAULT 'single' CHECK(media_type IN ('single', 'carousel')),
     repo_id              INTEGER UNIQUE REFERENCES repos_seen(id),
     hackathon_id         INTEGER UNIQUE REFERENCES hackathon_projects(id),
-    card_paths           TEXT,                  -- JSON array of local image paths
-    image_host_urls      TEXT,                  -- JSON array of public URLs
+    card_paths           TEXT,                  -- JSON array of local image paths for human review
     caption              TEXT,
-    instagram_media_id   TEXT,
-    instagram_permalink  TEXT,
-    status               TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'rendered', 'uploaded', 'published', 'failed')),
-    retry_count          INTEGER NOT NULL DEFAULT 0,
+    status               TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'rendered', 'failed')),
     error_message        TEXT,
-    scheduled_for        TEXT,
-    published_at         TEXT,
     run_id               TEXT REFERENCES pipeline_runs(run_id)
 );
 
@@ -101,6 +95,5 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_repo_id        ON evaluations(repo_id
 CREATE INDEX IF NOT EXISTS idx_evaluations_hackathon_id   ON evaluations(hackathon_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_content_type   ON evaluations(content_type);
 CREATE INDEX IF NOT EXISTS idx_posts_status               ON posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_scheduled_for        ON posts(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_api_calls_run_id           ON api_calls(run_id);
 CREATE INDEX IF NOT EXISTS idx_api_calls_service_date     ON api_calls(service, called_at);

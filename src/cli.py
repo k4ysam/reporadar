@@ -184,9 +184,11 @@ def cmd_run(args, settings, db: sqlite3.Connection) -> int:
     try:
         result = run_for_today(db, settings, day_of_week=day)
         if result is None:
-            print("Pipeline finished without publishing (nothing eligible or non-publish day).")
+            print("Pipeline finished without saving a post (nothing eligible or non-publish day).")
             return 0
-        print(f"Published: post_id={result.post_id} permalink={result.instagram_permalink}")
+        print(f"Saved post {result.post_id} for review:")
+        for path in result.card_paths:
+            print(f"  {path}")
         return 0
     except Exception as exc:
         log.error("Run failed: %s", exc)
@@ -216,7 +218,6 @@ def cmd_daemon(args, settings, db: sqlite3.Connection) -> int:
 
 
 def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
-    from src.publisher.token_manager import check_and_alert
     from src.sources.github_repos.client import GithubClient
 
     run_id = _start_run(db)
@@ -242,27 +243,14 @@ def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
     except Exception as exc:
         issues.append(f"LLM: {exc}")
 
-    # IG token
-    if settings.ig_access_token:
-        try:
-            status = check_and_alert(settings)
-            print(f"IG token: {status}")
-        except Exception as exc:
-            issues.append(f"IG token: {exc}")
-    else:
-        print("IG token: not configured (skipping)")
-
-    # Image host
-    if settings.image_host_bucket:
-        try:
-            from src.publisher.image_host import S3Host
-
-            S3Host(settings)
-            print(f"Image host OK — bucket={settings.image_host_bucket}")
-        except Exception as exc:
-            issues.append(f"Image host: {exc}")
-    else:
-        print("Image host: not configured (LocalFileHost will be used; not IG-compatible)")
+    # Output dir
+    from pathlib import Path
+    out = Path(settings.output_dir)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+        print(f"Output dir OK — {out.resolve()}")
+    except Exception as exc:
+        issues.append(f"Output dir: {exc}")
 
     if issues:
         print("\nIssues:")
