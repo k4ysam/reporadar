@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 import responses as resp_mock
 
-from src.scanner.github_client import GithubClient
+from src.sources.github_repos.client import GithubClient
 
 
 @pytest.fixture

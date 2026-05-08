@@ -2,62 +2,88 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## What this is
+
+Fully-automated Instagram-publishing pipeline driven by the [PRD](prd.md). No human in the loop after setup. Discovers GitHub repos via Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude or Gemini), generates captions, renders 1080×1080 JPEGs via Playwright, uploads to S3/R2, publishes via the IG Graph API. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
+
 ## Commands
 
-All commands assume the venv is active (`source .venv/bin/activate`) and `.env` exists with `GH_TOKEN` and `GEMINI_API_KEY` set.
+All assume venv active and `.env` populated (see `.env.template`).
 
 ```bash
-python -m src scan         # find rising repos, persist to repos_seen
-python -m src evaluate     # score unevaluated repos with Gemini
-python -m src serve        # Flask dashboard at http://localhost:8000
+python -m src scan-repos        # GitHub Search API → repos_seen
+python -m src scan-hackathons   # Devpost scrape → hackathon_projects
+python -m src evaluate          # LLM-evaluate unevaluated rows (per-provider daily budget)
+python -m src run               # Full pipeline for today's content type
+python -m src run --day 0       # Force a weekday (0=Mon..6=Sun)
+python -m src serve             # Read-only monitoring dashboard
+python -m src daemon            # APScheduler daemon
+python -m src verify-env        # Smoke-test all configured external services
 
-python -m pytest tests/ -q                              # full suite
-python -m pytest tests/scanner/test_velocity.py -q      # single file
-python -m pytest tests/scanner/test_velocity.py::test_name -q   # single test
+pytest -q                                     # full suite
+pytest tests/sources/github_repos/ -q         # one package
+pytest tests/render/test_renderer.py -q       # one file
 ```
 
-The DB at `reporadar.db` is auto-created from `schema.sql` on every CLI invocation via `init_db()` (idempotent — uses `CREATE TABLE IF NOT EXISTS`).
+`reporadar.db` is auto-created from `schema.sql` on every CLI invocation via `init_db()` (idempotent — `CREATE TABLE IF NOT EXISTS`).
 
 ## Architecture
 
-**Three-stage pipeline backed by a single SQLite DB.** The CLI dispatches to `cmd_scan`, `cmd_evaluate`, or `cmd_serve` (`src/cli.py`). All three stages share the same DB schema (`schema.sql`) and the same `Settings` config object loaded from `.env` via `Settings.from_env()` (`src/config.py`).
+**Single SQLite DB underpins five stages: discovery → eval → caption → render → publish.** All stages share `Settings` (`src/config.py`, loaded from `.env` via `Settings.from_env()`). Every CLI invocation creates a UUID `run_id` row in `pipeline_runs`; downstream rows in `evaluations`, `posts`, `api_calls` reference it.
 
-**Every pipeline invocation gets a UUID `run_id`** recorded in `pipeline_runs` with `status` (`running`/`completed`/`failed`). Downstream rows in `api_calls` and `evaluations` reference it. This is how budget tracking and observability work — see `_gemini_calls_today()` in `src/evaluator/batch.py`, which counts today's `api_calls.service='gemini'` rows to enforce `GEMINI_DAILY_LIMIT`.
+### LLM provider abstraction (`src/llm/provider.py`)
 
-**Scan stage** (`src/scanner/`):
-- `scanner.scan()` runs two GitHub Search queries (newly-created repos, recently-pushed repos within `repo_max_age_days`) and computes velocity via `velocity.compute_velocity()`.
-- **Critical invariant:** every repo returned by the search is UPSERTed into `repos_seen` with current `star_count_at_last_scan`, even if it doesn't pass velocity thresholds. This is what makes the next run's growth delta accurate — first sighting establishes the baseline; subsequent sightings compare against it. For brand-new repos (no prior row), `compute_velocity` falls back to fetching stargazer timestamps to estimate the window-start star count.
-- Filters out repos where `already_posted=1` or `excluded_until >= today`.
+`LLM_PROVIDER=claude|gemini` selects between `ClaudeProvider` (anthropic SDK) and `GeminiProvider` (google-generativeai SDK). Both expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
 
-**Evaluate stage** (`src/evaluator/`):
-- Pulls repos from `repos_seen` that have no row in `evaluations` and aren't already posted.
-- `batch.evaluate_candidates()` enforces two budgets: `MAX_EVALUATIONS_PER_RUN` and `GEMINI_DAILY_LIMIT` (the latter spans calendar days, read from the `api_calls` log).
-- Skips anything evaluated in the last 7 days.
-- `evaluator.evaluate_candidate()` builds a prompt from `RepoContext` (README + recent commits + top issues, fetched in `fetcher.py`) and calls Gemini. JSON parsing is lenient — strips ```json fences, retries once with "return ONLY valid JSON" if first parse fails.
-- The prompt builder in `prompts.py` returns Anthropic-style content blocks with `cache_control` for long READMEs, then `blocks_to_text()` flattens them for Gemini. This is leftover Anthropic structure — see "PRD ↔ code mismatch" below.
+### Discovery (`src/sources/`)
 
-**Serve stage** (`src/web/app.py`):
-- Flask dashboard. The `/scan` POST handler invokes the same `scanner.scan()` function the CLI uses, but allows overriding `velocity_window_hours` per-request and persists the override into the `app_settings` table so reads stay consistent.
+- `github_repos/scanner.scan()` — runs two Search API queries (newly-created + recently-pushed within `repo_max_age_days`), computes velocity via `velocity.compute_velocity()`. **Critical invariant:** every search hit gets UPSERTed to `repos_seen` even when below thresholds — that establishes the baseline for next run's delta calc. Brand-new repos fall back to fetching stargazer timestamps to estimate the window-start star count.
+- `devpost/scanner.scan_devpost()` — polite scraper with rate limit + robots.txt check. Filters: must have GitHub link AND prize-winning status (per PRD §1). Non-eligible rows still get UPSERTed for tracking.
 
-**Config precedence:** `.env` is loaded by `python-dotenv` at import time (`src/config.py`), so any code that imports `Settings` after that will see env vars. `app_settings` (DB-backed) is read by `_window_days()` in the web layer to override `velocity_window_hours` for dashboard-triggered scans only — CLI scans use the env-derived `Settings` value.
+### Evaluation (`src/evaluator/`)
+
+- `batch.evaluate_candidates` (repos) and `batch.evaluate_hackathon_candidates` (hackathons). Both: 7-day dedup, daily budget guard against the active provider, `max_evaluations_per_run` cap, per-candidate exception isolation.
+- `evaluator.evaluate_candidate` builds prompt from `RepoContext` (README + commits + issues). `evaluator.evaluate_hackathon` uses `build_hackathon_prompt` directly (no fetcher).
+- LLM JSON parsing is lenient: strips ```json fences, retries once with "return ONLY valid JSON" if first parse fails.
+- Stores both `raw_response` (canonical) and `claude_raw_response` (legacy column name retained for back-compat with rows from earlier builds).
+
+### Caption + Render (`src/caption/`, `src/render/`)
+
+- `generate_repo_caption` / `generate_hackathon_caption` — provider-agnostic, returns a `Caption` Pydantic model. `Caption.render()` clips to ≤2,200 chars (IG limit).
+- `render_repo_card` produces one 1080×1080 JPEG. `render_hackathon_carousel` produces 4 slides (hook → what it does → tech stack → team/links).
+- Templates use Jinja2; CSS targets system fonts so no font binaries shipped. Renderer uses Playwright sync API + Chromium. Tests mock `sync_playwright` so they pass without browser binaries installed.
+
+### Publish (`src/publisher/`)
+
+- `image_host.S3Host` is boto3-compatible (works with AWS S3, Cloudflare R2, Backblaze B2). `LocalFileHost` is dev-only fallback returning `file://` URLs (IG won't accept these — only useful with `IG_DRY_RUN=1` or a tunnel).
+- `instagram.InstagramClient` wraps Graph API: `create_image_container` → `wait_for_finished` → `publish` for single posts; carousel adds `create_child_container` per slide then a parent CAROUSEL container.
+- `publisher.publish_post` is the orchestrator: writes the `posts` row at `rendered`, idempotency-checks against existing `published` rows for same `repo_id`/`hackathon_id` (UNIQUE constraints back this up), uploads, publishes, updates status to `published` and flips source's `already_posted=1`. Retry with exponential backoff (3 attempts).
+- `IG_DRY_RUN=1` short-circuits after the `rendered` step.
+- `token_manager.check_and_alert` runs daily; logs WARN when ≤14 days to expiry. `refresh_long_lived_token` exchanges short→long-lived tokens via `/oauth/access_token`.
+
+### Orchestration (`src/pipeline.py`, `src/scheduler/daemon.py`)
+
+- `run_for_today` dispatches on weekday: 0/4 → repo pipeline; 2 → hackathon pipeline.
+- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the pipeline (PRD §6 anti-pattern requirement).
+
+### Read-only dashboard (`src/web/`)
+
+Stripped of scan/approval buttons. Shows: posts (with permalink + status), recent evaluations (both content types), today's repo scans, recent hackathon candidates, recent runs.
 
 ## Key data model details (`schema.sql`)
 
-- `repos_seen.full_name` is the natural key (UNIQUE). All UPSERTs hit it.
-- `evaluations.repo_id` → `repos_seen.id` (the autoincrement int, NOT `github_repo_id`). The evaluator INSERT does the lookup inline via `INSERT … SELECT id FROM repos_seen WHERE full_name=?`.
-- `api_calls` is the source of truth for daily budget counting. If you add a new LLM call path, log it via `log_api_call()` or budget enforcement breaks silently.
-- `pipeline_runs.status` has a CHECK constraint — only `running`/`completed`/`failed` are valid.
+- `repos_seen.full_name`, `hackathon_projects.devpost_url` are natural keys (UNIQUE). All UPSERTs hit them.
+- `evaluations` has both `repo_id` and `hackathon_id` (one is NULL); `content_type` is the discriminator.
+- `posts.repo_id` / `posts.hackathon_id` are UNIQUE — DB-level idempotency for "one published post per source".
+- `posts.status` lifecycle: `pending → rendered → uploaded → published`, or `failed`.
+- `api_calls` is the source of truth for daily budget counting. New LLM calls must log via the provider's `_log_call` helper (or directly via `db.log_api_call`) or budgets break silently.
 
-## Pydantic models (`src/models.py`)
+## Models (`src/models.py`)
 
-`Candidate` and `Evaluation` are `frozen=True` — they're immutable value objects. Don't try to mutate them; build new ones. `Evaluation` enforces `1 <= scores <= 10` at construction.
+All `frozen=True`. Don't mutate; build new instances. `Evaluation.novelty_score / explainability_score / overall_score` are validated `1 ≤ x ≤ 10` at construction.
 
-## PRD ↔ code mismatch worth knowing
+## Out of scope (deferred from PRD)
 
-`prd.md` Step 3 specifies "Claude API" for evaluation. The code uses **Google Gemini** (`google-generativeai` SDK, default model `gemini-2.0-flash`). Vestiges of the original Anthropic implementation remain — `evaluations.claude_raw_response` column name, the content-block shape in `prompts.build_user_prompt_blocks` with `cache_control`. If you change the LLM provider, both the SDK call and the prompt-block flattening (`blocks_to_text`) need updating, plus the budget guard's `service='gemini'` literal.
-
-## Testing notes
-
-- `tests/conftest.py` provides `tmp_db` (calls `init_db()` against a tmp file) and `mock_run_id`. Use these for any test that needs DB state.
-- HTTP calls are stubbed via `responses` (see `tests/scanner/test_github_client.py`). The Gemini client is mocked directly in evaluator tests.
-- `pyproject.toml` sets `pythonpath = ["."]` and `testpaths = ["tests"]` — tests import from `src.*` without any path manipulation.
+- **Sandbox trial** (PRD Phase 4 — Docker for CLI tools, Playwright demo screenshots): not implemented. Add a new module under `src/render/` or a `src/sandbox/` package later.
+- **GitHub trending page scrape** (PRD §1 secondary signal): omitted; PRD risk #1 calls it brittle.
+- **Cross-platform publish** (X, LinkedIn): post-traction expansion only.

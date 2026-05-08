@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 from src.config import Settings
 from src.models import Candidate
-from src.scanner.github_client import GithubClient
-from src.scanner.velocity import compute_velocity
+from src.sources.github_repos.client import GithubClient
+from src.sources.github_repos.velocity import compute_velocity
 
 
 def scan(

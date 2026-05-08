@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from src.config import Settings
 from src.models import Candidate
-from src.scanner.github_client import GithubClient
+from src.sources.github_repos.client import GithubClient
 
 
 def compute_velocity(

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.config import Settings
-from src.scanner.velocity import compute_velocity
+from src.sources.github_repos.velocity import compute_velocity
 
 
 NOW = datetime.now(timezone.utc)
