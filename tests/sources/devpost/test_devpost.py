@@ -98,7 +98,7 @@ def test_devpost_scanner_filters_to_prize_with_github(tmp_db, mock_run_id):
         },
     ]
 
-    settings = Settings(gh_token="x", gemini_api_key="AIza")
+    settings = Settings(gh_token="x", openai_api_key="sk-test")
     candidates = scan_devpost(tmp_db, settings, mock_run_id, client=fake_client)
 
     # Only A passes both filters

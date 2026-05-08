@@ -9,7 +9,7 @@ from src.publisher.image_host import LocalFileHost, S3Host, get_image_host
 
 
 def _settings(**overrides):
-    base = dict(gh_token="x", gemini_api_key="AIza")
+    base = dict(gh_token="x", openai_api_key="sk-test")
     base.update(overrides)
     return Settings(**base)
 

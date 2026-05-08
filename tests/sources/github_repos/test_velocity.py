@@ -15,7 +15,7 @@ NOW = datetime.now(timezone.utc)
 def _settings(**overrides):
     base = dict(
         gh_token="tok",
-        gemini_api_key="AIza-test",
+        openai_api_key="sk-test",
         star_base_min=20,
         star_growth_min_pct=200.0,
         velocity_window_hours=48,

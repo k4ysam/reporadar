@@ -22,7 +22,7 @@ class Settings(BaseModel):
     devpost_max_projects_per_run: int = 25
 
     # --- LLM provider ---
-    llm_provider: LLMProviderName = "gemini"
+    llm_provider: LLMProviderName = "openai"
     anthropic_api_key: str | None = None
     gemini_api_key: str | None = None
     openai_api_key: str | None = None
@@ -88,7 +88,7 @@ class Settings(BaseModel):
 
     @classmethod
     def from_env(cls) -> "Settings":
-        provider_raw = os.environ.get("LLM_PROVIDER", "gemini").lower().strip()
+        provider_raw = os.environ.get("LLM_PROVIDER", "openai").lower().strip()
         if provider_raw not in ("claude", "gemini", "openai"):
             raise RuntimeError(
                 f"LLM_PROVIDER must be 'claude', 'gemini', or 'openai' (got {provider_raw!r})"

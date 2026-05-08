@@ -11,7 +11,7 @@ from src.models import Candidate
 
 
 def _settings(**overrides):
-    base = dict(gh_token="tok", gemini_api_key="AIza-test", max_evaluations_per_run=2)
+    base = dict(gh_token="tok", openai_api_key="sk-test", max_evaluations_per_run=2)
     base.update(overrides)
     return Settings(**base)
 

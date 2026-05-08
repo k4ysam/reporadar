@@ -47,7 +47,7 @@ def _seed(tmp_db, mock_run_id):
 
 def test_dry_run_skips_publish(tmp_db, tmp_path, mock_run_id):
     eval_id = _seed(tmp_db, mock_run_id)
-    settings = Settings(gh_token="x", gemini_api_key="AIza", ig_dry_run=True, output_dir=str(tmp_path))
+    settings = Settings(gh_token="x", openai_api_key="sk-test", ig_dry_run=True, output_dir=str(tmp_path))
 
     from src.publisher.publisher import publish_post
 
@@ -67,7 +67,7 @@ def test_dry_run_skips_publish(tmp_db, tmp_path, mock_run_id):
 def test_publish_happy_path(tmp_db, tmp_path, mock_run_id):
     eval_id = _seed(tmp_db, mock_run_id)
     settings = Settings(
-        gh_token="x", gemini_api_key="AIza", ig_dry_run=False, output_dir=str(tmp_path),
+        gh_token="x", openai_api_key="sk-test", ig_dry_run=False, output_dir=str(tmp_path),
         ig_access_token="t", ig_business_account_id="u",
     )
 
@@ -107,7 +107,7 @@ def test_idempotency_skips_already_published(tmp_db, tmp_path, mock_run_id):
     )
     tmp_db.commit()
     settings = Settings(
-        gh_token="x", gemini_api_key="AIza", ig_dry_run=False, output_dir=str(tmp_path),
+        gh_token="x", openai_api_key="sk-test", ig_dry_run=False, output_dir=str(tmp_path),
         ig_access_token="t", ig_business_account_id="u",
     )
     fake_host = MagicMock()
@@ -142,7 +142,7 @@ def test_failed_post_is_retried_on_next_run(tmp_db, tmp_path, mock_run_id):
     old_post_id = tmp_db.execute("SELECT id FROM posts WHERE repo_id = 1").fetchone()[0]
 
     settings = Settings(
-        gh_token="x", gemini_api_key="AIza", ig_dry_run=False, output_dir=str(tmp_path),
+        gh_token="x", openai_api_key="sk-test", ig_dry_run=False, output_dir=str(tmp_path),
         ig_access_token="t", ig_business_account_id="u",
     )
     img = tmp_path / "card.jpg"; img.write_bytes(b"\xff\xd8\xff")
