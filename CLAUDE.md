@@ -33,7 +33,7 @@ pytest tests/render/test_renderer.py -q       # one file
 
 ### LLM provider abstraction (`src/llm/provider.py`)
 
-`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
+`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). The default is `openai`. All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
 
 ### Discovery (`src/sources/`)
 

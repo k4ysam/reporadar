@@ -16,7 +16,7 @@ def _clear(monkeypatch):
 
 def test_missing_gh_token_raises(monkeypatch):
     _clear(monkeypatch)
-    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     with pytest.raises(RuntimeError, match="GH_TOKEN"):
         Settings.from_env()
 
@@ -78,18 +78,18 @@ def test_invalid_provider_raises(monkeypatch):
 def test_defaults_applied(monkeypatch):
     _clear(monkeypatch)
     monkeypatch.setenv("GH_TOKEN", "ghp_test")
-    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     s = Settings.from_env()
     assert s.max_candidates_per_run == 15
-    assert s.gemini_model == "gemini-2.0-flash"
-    assert s.llm_provider == "gemini"
-    assert s.llm_model == "gemini-2.0-flash"  # property derived from provider
+    assert s.openai_model == "gpt-5.4-mini"
+    assert s.llm_provider == "openai"
+    assert s.llm_model == "gpt-5.4-mini"  # property derived from provider
 
 
 def test_numeric_coercion(monkeypatch):
     _clear(monkeypatch)
     monkeypatch.setenv("GH_TOKEN", "ghp_test")
-    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.setenv("MAX_CANDIDATES_PER_RUN", "7")
     monkeypatch.setenv("STAR_GROWTH_MIN_PCT", "150.5")
     s = Settings.from_env()

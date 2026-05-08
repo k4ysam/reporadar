@@ -27,7 +27,7 @@ playwright install chromium    # one-time browser download for the renderer
 cp .env.template .env
 ```
 
-Fill in the keys you have. Minimum to scan + evaluate: `GH_TOKEN` plus one LLM key.
+Fill in the keys you have. Minimum to scan + evaluate: `GH_TOKEN` plus one LLM key. The default LLM provider is `openai`.
 
 | Variable | Required for | Where |
 |---|---|---|

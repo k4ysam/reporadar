@@ -11,7 +11,7 @@ from src.config import Settings
 
 @resp_mock.activate
 def test_verify_env_uses_persisted_run_id_for_api_logging(tmp_db):
-    settings = Settings(gh_token="ghp_test", gemini_api_key="AIza-test")
+    settings = Settings(gh_token="ghp_test", openai_api_key="sk-test")
     resp_mock.add(
         resp_mock.GET,
         "https://api.github.com/rate_limit",

@@ -11,7 +11,7 @@ from src.models import Candidate
 
 
 def _settings():
-    return Settings(gh_token="tok", gemini_api_key="AIza-test")
+    return Settings(gh_token="tok", openai_api_key="sk-test")
 
 
 def _candidate():
