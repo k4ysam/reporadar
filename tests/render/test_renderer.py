@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.models import Caption, Evaluation, HackathonCandidate
-from src.render.renderer import render_html, render_hackathon_carousel, render_repo_card
+from src.render.renderer import (
+    render_hackathon_carousel,
+    render_html,
+    render_linkedin_repo_poster,
+    render_repo_card,
+)
 
 _VALID_1X1_PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
@@ -60,6 +65,32 @@ def test_render_html_smoke():
     assert "Python" in html
 
 
+def test_render_linkedin_html_smoke():
+    html = render_html(
+        "linkedin_repo_poster.html",
+        {
+            "repo_full_name": "awesome-co/zerodb",
+            "repo_short_name": "zerodb",
+            "repo_owner": "awesome-co",
+            "headline": "zerodb turns local files into an agent memory layer",
+            "star_label": "+420 stars",
+            "growth_label": "+380% growth",
+            "window_hours": 72,
+            "language": "Python",
+            "topics": ["kv", "storage"],
+            "summary": "1ms reads",
+            "why_interesting": "Drop-in Redis replacement.",
+            "code_lines": ["git clone https://github.com/awesome-co/zerodb"],
+        },
+    )
+    assert "REPORADAR" in html
+    assert "ZERODB TURNS LOCAL FILES" in html
+    assert "awesome-co/zerodb" in html
+    assert "+420 stars" in html
+    assert "+380% growth" in html
+    assert "Python" in html
+
+
 def test_render_repo_card_invokes_playwright(tmp_path):
     """We mock Playwright so the test runs offline / without browser binaries."""
     out_dir = tmp_path / "cards"
@@ -90,6 +121,47 @@ def test_render_repo_card_invokes_playwright(tmp_path):
     # First arg is the rendered HTML
     html_arg = fake_page.set_content.call_args.args[0]
     assert "zerodb" in html_arg
+
+
+def test_render_linkedin_repo_poster_invokes_playwright(tmp_path):
+    out_dir = tmp_path / "cards"
+
+    fake_browser = MagicMock()
+    fake_context = MagicMock()
+    fake_page = MagicMock()
+    fake_browser.new_context.return_value = fake_context
+    fake_context.new_page.return_value = fake_page
+
+    def fake_screenshot(path, **kwargs):
+        Path(path).write_bytes(_VALID_1X1_PNG)
+    fake_page.screenshot.side_effect = fake_screenshot
+
+    fake_p = MagicMock()
+    fake_p.chromium.launch.return_value = fake_browser
+
+    fake_sync_pw = MagicMock()
+    fake_sync_pw.__enter__ = MagicMock(return_value=fake_p)
+    fake_sync_pw.__exit__ = MagicMock(return_value=False)
+
+    with patch("playwright.sync_api.sync_playwright", return_value=fake_sync_pw):
+        result = render_linkedin_repo_poster(
+            _eval(),
+            out_dir,
+            headline="zerodb turns local files into an agent memory layer",
+            language="Python",
+            topics=["kv", "storage"],
+        )
+
+    assert result.media_type == "single"
+    assert len(result.paths) == 1
+    assert Path(result.paths[0]).name.startswith("linkedin_repo_")
+    fake_page.set_content.assert_called_once()
+    assert fake_browser.new_context.call_args.kwargs["viewport"] == {"width": 1200, "height": 1500}
+    html_arg = fake_page.set_content.call_args.args[0]
+    assert "REPORADAR" in html_arg
+    assert "awesome-co/zerodb" in html_arg
+    assert "+420 stars" in html_arg
+    assert "+380% growth" in html_arg
 
 
 def test_render_carousel_makes_four_slides(tmp_path):
