@@ -1,0 +1,34 @@
+{% extends "_base.html" %}
+{% block body %}
+<div class="repo-card">
+  <div class="kicker">
+    <span class="dot"></span>
+    <span>RISING ON GITHUB</span>
+  </div>
+  <h1 class="repo-name">{{ repo_short_name }}</h1>
+  <div class="repo-owner">{{ repo_full_name.split('/')[0] }}/</div>
+
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-value">+{{ stars_added }}</div>
+      <div class="stat-label">stars · {{ window_hours }}h</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-value accent">+{{ growth_pct }}%</div>
+      <div class="stat-label">growth</div>
+    </div>
+    {% if language %}
+    <div class="stat-divider"></div>
+    <div class="stat">
+      <div class="stat-value lang">{{ language }}</div>
+      <div class="stat-label">language</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <p class="tagline">{{ tagline }}</p>
+
+  <div class="audience-line">For: {{ audience }}</div>
+</div>
+{% endblock %}

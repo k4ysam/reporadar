@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from src.config import Settings
-from src.scanner.scanner import scan
+from src.sources.github_repos.scanner import scan
 
 
 def _settings():

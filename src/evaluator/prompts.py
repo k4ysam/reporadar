@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from src.evaluator.fetcher import RepoContext
-from src.models import Candidate
+from src.models import Candidate, HackathonCandidate
 
-SYSTEM_PROMPT = """You are an editorial agent for RepoRadar, a newsletter that surfaces \
+REPO_SYSTEM_PROMPT = """You are an editorial agent for RepoRadar, an Instagram account that surfaces \
 genuinely novel GitHub repos before they go mainstream. Your job is to evaluate a repo \
 and return a structured JSON assessment.
 
@@ -12,10 +12,34 @@ Scoring rubric:
 - explainability_score (1-10): Can a developer understand the value in one Instagram caption?
 - overall_score (1-10): Weighted composite. Penalize hard: toy projects, obvious forks, \
 repos with no README, repos whose star spike looks like bot activity.
+- skip (boolean): Set to true if this repo is unsuitable for posting (low quality, off-topic, \
+abandoned, or hype with no substance). Otherwise false.
 
 Return ONLY valid JSON matching this exact schema — no markdown, no explanation:
 {"summary": "...", "why_interesting": "...", "audience": "...", \
-"novelty_score": 8, "explainability_score": 9, "overall_score": 8.5}"""
+"novelty_score": 8, "explainability_score": 9, "overall_score": 8.5, "skip": false}"""
+
+
+HACKATHON_SYSTEM_PROMPT = """You are an editorial agent for RepoRadar, an Instagram account \
+that highlights standout hackathon projects. Your job is to evaluate a Devpost submission \
+and return a structured JSON assessment.
+
+Scoring rubric (account for the time-constrained nature of hackathons):
+- novelty_score (1-10): Is the idea original, or a tired hackathon trope (todo apps, generic \
+chatbots, weather apps, etc.)?
+- explainability_score (1-10): Can a developer grasp what was built in one Instagram caption?
+- overall_score (1-10): Weighted composite. Reward ambition relative to the time constraint, \
+working demos, polished execution. Penalize: vaporware, AI-wrapper-with-no-depth, projects \
+without a working GitHub link.
+- skip (boolean): True if unsuitable for posting (low effort, broken, off-topic).
+
+Return ONLY valid JSON matching this exact schema — no markdown, no explanation:
+{"summary": "...", "why_interesting": "...", "audience": "...", \
+"novelty_score": 8, "explainability_score": 9, "overall_score": 8.5, "skip": false}"""
+
+
+# Backward compatibility alias used by older tests
+SYSTEM_PROMPT = REPO_SYSTEM_PROMPT
 
 
 def build_user_prompt_blocks(candidate: Candidate, ctx: RepoContext) -> list[dict]:
@@ -49,6 +73,22 @@ def build_user_prompt_blocks(candidate: Candidate, ctx: RepoContext) -> list[dic
     return blocks
 
 
+def build_hackathon_prompt(candidate: HackathonCandidate) -> str:
+    parts: list[str] = [
+        f"Project: {candidate.project_name}",
+        f"Tagline: {candidate.tagline or '(none)'}",
+        f"Hackathon: {candidate.hackathon_name or '(unknown)'}",
+        f"Prize / award: {candidate.prize or '(none specified)'}",
+        f"Team: {candidate.team or '(unknown)'}",
+        f"GitHub: {candidate.github_url or '(missing)'}",
+        f"Demo URL: {candidate.demo_url or '(none)'}",
+        f"Tech stack: {', '.join(candidate.technologies) or '(unknown)'}",
+    ]
+    if candidate.description:
+        parts.append(f"\nDescription:\n{candidate.description[:4000]}")
+    return "\n".join(parts)
+
+
 def blocks_to_text(blocks: list[dict]) -> str:
-    """Flatten content blocks to a single string for non-Anthropic LLMs."""
+    """Flatten content blocks to a single string."""
     return "\n\n".join(b["text"] for b in blocks if "text" in b)

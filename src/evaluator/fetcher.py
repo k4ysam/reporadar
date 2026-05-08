@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 from dataclasses import dataclass, field
 
-from src.scanner.github_client import GithubClient
+from src.sources.github_repos.client import GithubClient
 
 
 @dataclass

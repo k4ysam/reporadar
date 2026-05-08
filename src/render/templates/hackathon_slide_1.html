@@ -1,0 +1,14 @@
+{% extends "_base.html" %}
+{% block body %}
+<div class="slide slide-hook">
+  <div class="kicker">
+    <span class="dot"></span>
+    <span>HACKATHON SPOTLIGHT</span>
+  </div>
+  <h1 class="hook">{{ hook or project_name }}</h1>
+  {% if hackathon_name %}
+  <div class="meta">{{ hackathon_name }}{% if prize %} · {{ prize }}{% endif %}</div>
+  {% endif %}
+  <div class="slide-num">1 / 4 →</div>
+</div>
+{% endblock %}

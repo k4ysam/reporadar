@@ -156,4 +156,26 @@ a:hover { text-decoration: underline; }
 
 .empty { color: #8b949e; font-size: 0.9rem; padding: 1rem 0; }
 .empty code { background: #21262d; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
-.error-msg { color: #f85149; font-size: 0.8rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-msg { color: #f85149; font-size: 0.8rem; max-width: 100%; overflow-wrap: anywhere; }
+
+.ro-pill {
+  margin-left: auto;
+  font-size: 0.72rem;
+  background: #1f3044;
+  color: #58a6ff;
+  border-radius: 10px;
+  padding: 0.2rem 0.6rem;
+  letter-spacing: 0.04em;
+}
+.kind {
+  font-size: 0.7rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #21262d;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+.status-rendered  { background: #2d2d0d; color: #e3b341; }
+.status-uploaded  { background: #1f3044; color: #58a6ff; }
+.status-published { background: #1a4a1a; color: #3fb950; }
