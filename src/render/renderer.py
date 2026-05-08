@@ -13,6 +13,7 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 STATIC_DIR = Path(__file__).parent / "static"
 
 INSTAGRAM_SQUARE = (1080, 1080)
+LINKEDIN_POSTER = (1200, 1500)
 
 
 @dataclass
@@ -135,6 +136,52 @@ def render_repo_card(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     target = out / f"repo_{stem}_{timestamp}.jpg"
     _render_one(html, target, INSTAGRAM_SQUARE)
+    return RenderResult(media_type="single", paths=[str(target)])
+
+
+def render_linkedin_repo_poster(
+    evaluation: Evaluation,
+    output_dir: str | Path,
+    *,
+    headline: str,
+    language: str | None = None,
+    topics: list[str] | None = None,
+    window_hours: int = 72,
+    file_stem: str | None = None,
+) -> RenderResult:
+    out = _ensure_output_dir(output_dir)
+    short = evaluation.full_name.split("/")[-1]
+    owner = evaluation.full_name.split("/")[0] if "/" in evaluation.full_name else ""
+    star_label = f"+{evaluation.stars_48h} stars" if evaluation.stars_48h else "tracked on GitHub"
+    growth_label = f"+{int(evaluation.growth_pct)}% growth" if evaluation.growth_pct else "rising repo"
+    topic_badges = [t for t in (topics or []) if t][:3]
+    code_lines = [
+        f"git clone https://github.com/{evaluation.full_name}",
+        f"repo = '{short}'",
+        f"signal = '{star_label}'",
+        f"audience = '{evaluation.audience[:42]}'",
+    ]
+    ctx = {
+        "repo_full_name": evaluation.full_name,
+        "repo_short_name": short,
+        "repo_owner": owner,
+        "headline": headline,
+        "stars_added": evaluation.stars_48h,
+        "star_label": star_label,
+        "growth_label": growth_label,
+        "window_hours": window_hours,
+        "language": language or "",
+        "topics": topic_badges,
+        "summary": evaluation.summary,
+        "why_interesting": evaluation.why_interesting,
+        "code_lines": code_lines,
+    }
+    html = render_html("linkedin_repo_poster.html", ctx)
+
+    stem = file_stem or _safe_stem(evaluation.full_name)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    target = out / f"linkedin_repo_{stem}_{timestamp}.jpg"
+    _render_one(html, target, LINKEDIN_POSTER)
     return RenderResult(media_type="single", paths=[str(target)])
 
 

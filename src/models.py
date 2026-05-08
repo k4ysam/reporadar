@@ -93,6 +93,16 @@ class SavedPost(BaseModel):
     caption: str
 
 
+class LinkedInPostPackage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    commentary: str
+    image_paths: list[str] = Field(default_factory=list)
+    alt_text: str
+    repo_url: str
+    source_name: str
+
+
 class PipelineRun(BaseModel):
     run_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

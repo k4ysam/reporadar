@@ -1,0 +1,45 @@
+<!doctype html>
+<html class="linkedin-html" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="{{ static_url }}style.css" />
+  <title>RepoRadar LinkedIn poster</title>
+</head>
+<body class="linkedin-body">
+  <div class="linkedin-poster">
+    <section class="poster-visual" aria-hidden="true">
+      <div class="poster-grid"></div>
+      <div class="poster-terminal">
+        <div class="terminal-bar">
+          <span></span><span></span><span></span>
+          <strong>{{ repo_short_name }}</strong>
+        </div>
+        <div class="terminal-body">
+          {% for line in code_lines %}
+          <div><span class="prompt">$</span> {{ line }}</div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="repo-orbit repo-orbit-one"></div>
+      <div class="repo-orbit repo-orbit-two"></div>
+      <div class="repo-node node-a"></div>
+      <div class="repo-node node-b"></div>
+      <div class="repo-node node-c"></div>
+      <div class="repo-node node-d"></div>
+    </section>
+
+    <section class="poster-copy">
+      <div class="poster-brand-rule"><span>REPORADAR</span></div>
+      <h1 class="poster-headline">{{ headline | upper }}</h1>
+      <div class="poster-proof-strip">
+        <span>{{ repo_full_name }}</span>
+        <span>{{ star_label }}</span>
+        <span>{{ growth_label }}</span>
+        <span>{{ window_hours }}h</span>
+        {% if language %}<span>{{ language }}</span>{% endif %}
+        {% for topic in topics %}<span>{{ topic }}</span>{% endfor %}
+      </div>
+    </section>
+  </div>
+</body>
+</html>

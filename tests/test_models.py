@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from src.models import Candidate, Evaluation, PipelineRun
+from src.models import Candidate, Evaluation, LinkedInPostPackage, PipelineRun
 
 
 def make_candidate(**overrides):
@@ -78,6 +78,40 @@ class TestEvaluation:
     def test_score_boundaries(self):
         e = make_evaluation(novelty_score=1.0, explainability_score=10.0, overall_score=5.5)
         assert e.novelty_score == 1.0
+
+
+class TestLinkedInPostPackage:
+    def test_round_trip(self):
+        package = LinkedInPostPackage(
+            commentary="Post text.",
+            image_paths=["/tmp/poster.jpg"],
+            alt_text="Poster alt text.",
+            repo_url="https://github.com/owner/repo",
+            source_name="owner/repo",
+        )
+
+        assert LinkedInPostPackage.model_validate(package.model_dump()) == package
+
+    def test_image_paths_default_empty(self):
+        package = LinkedInPostPackage(
+            commentary="Post text.",
+            alt_text="Poster alt text.",
+            repo_url="https://github.com/owner/repo",
+            source_name="owner/repo",
+        )
+
+        assert package.image_paths == []
+
+    def test_frozen(self):
+        package = LinkedInPostPackage(
+            commentary="Post text.",
+            alt_text="Poster alt text.",
+            repo_url="https://github.com/owner/repo",
+            source_name="owner/repo",
+        )
+
+        with pytest.raises(Exception):
+            package.commentary = "changed"  # type: ignore[misc]
 
 
 class TestPipelineRun:
