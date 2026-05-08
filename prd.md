@@ -1,256 +1,147 @@
 # PRD: RepoRadar
-### Automated GitHub Discovery Newsletter — Instagram + Web
 
-**Author:** Samaksh  
-**Status:** Draft  
-**Last Updated:** May 2, 2026
+A fully automated content pipeline that discovers trending GitHub repositories and standout hackathon projects, evaluates them for genuine signal, and publishes polished Instagram posts — zero human in the loop.
+
+| | |
+|---|---|
+| **Status** | Draft v1.0 |
+| **Date** | May 2026 |
+| **Target launch** | v1 in ~3 weeks |
+| **Automation** | 100% (post-setup) |
 
 ---
 
 ## Problem
 
-There are thousands of genuinely interesting GitHub repos that never break through. GitHub Trending captures what's already popular. newsletters like TLDR cover repos after they've already blown up. The signal — a repo spiking fast before anyone has heard of it — exists in the data but nobody has built an automated editorial layer on top of it.
-
-Manual "Day 1 of cool repos" accounts exist but they're inconsistent, burn out, and rely entirely on one person's bandwidth and taste.
-
----
-
-## Solution
-
-An automated pipeline that monitors GitHub for repos with anomalous star velocity, uses Claude to evaluate and write about the most interesting ones, surfaces a human-review digest daily, and auto-publishes approved picks to Instagram (and optionally a web feed).
-
-The human stays in the loop for taste. The machine does the discovery and writing.
-
----
-
-## Users
-
-**Primary:** The operator (you). This is an internal tool that runs a public content product.  
-**Secondary:** Instagram followers who discover repos through the posts.
+Developers are on Instagram. Nobody is serving them well. Existing accounts covering GitHub or dev tools are either **human-curated newsletters** (slow, expensive, inconsistent) or **low-effort reposts** with no editorial judgment. There is no automated, opinionated, visual-first account surfacing what's actually worth paying attention to in the dev ecosystem this week.
 
 ---
 
 ## Goals
 
-- Find 2–3 genuinely interesting, under-the-radar repos per day
-- Maintain posting consistency without manual effort
-- Build a content moat around star velocity as an editorial signal
-- Portfolio-worthy pipeline: GitHub API + Claude + Instagram Graph API + scheduler
+- **Full automation** — No human needed in the loop once the pipeline is live. Self-running on a schedule.
+- **Editorial judgment** — LLM-powered signal filtering. Not just "most stars" — actual quality evaluation.
+- **Instagram-native** — Posts designed for the platform. Carousels, strong hooks, visual code cards.
+- **Defensible niche** — Dev innovation discovery account. Broad enough to grow, specific enough to own.
 
 ---
 
-## Non-Goals
+## Pipeline architecture
 
-- Building a public-facing web app in v1
-- Fully autonomous posting with no human review
-- Covering repos that are already mainstream
+### 1. Discovery — dual source ingestion
+Two parallel scrapers run on a cron. **GitHub:** Search API (primary, stable) + trending page scrape (secondary signal). Filter repos created in last 7 days with star velocity above threshold. **Hackathon:** Devpost scraper targeting projects submitted this week, filtered by prize-winning status and presence of a GitHub link. Devfolio as secondary source.
 
----
+`GitHub Search API` `Playwright` `Devpost` `cron`
 
-## Pipeline Architecture
+### 2. Deduplication & seen-log
+Every candidate repo/project is checked against a persistent store (SQLite or simple JSON log). Skip anything posted in the last 30 days. Skip repos with fewer than a configurable star-velocity floor. This prevents repeat content and keeps the feed fresh.
 
-```
-GitHub API (star velocity scan)
-        ↓
-Filter & Score (Python)
-        ↓
-Claude evaluation (README + commits + issues)
-        ↓
-Daily digest → Human review (you approve/reject)
-        ↓
-Auto-format → Instagram Graph API → Scheduled post
-```
+`SQLite` `star velocity`
 
----
+### 3. LLM evaluation
+Each candidate is passed to Claude with a structured prompt. Evaluated on: README quality, novelty of the idea, real-world utility vs. demo toy, contributor health, and (for hackathon) ambition relative to time constraint. Output: a score (0–10), a one-sentence verdict, and a "skip" flag. Anything below threshold is dropped automatically.
 
-## Feature Breakdown
+`Claude API` `structured output` `scoring`
 
-### 1. Star Velocity Scanner
+### 4. Sandbox trial (conditional)
+For CLI tools and libraries only: spin up a Docker container, install the package, run basic usage, capture stdout. If install fails or requires auth/config → gracefully skip, mark as "code-reviewed only." For hackathon projects with a live demo URL → Playwright screenshot. This stage is best-effort, not blocking.
 
-**What it does:** Hits the GitHub API daily to find repos with anomalous star growth over the last 24–48hrs.
+`Docker` `Playwright` `conditional`
 
-**Signal:** Not total stars — rate of growth. A repo going 50 → 500 stars in 48hrs is the target. One sitting at 50k is not.
+### 5. Post generation
+LLM generates caption (hook line, body, CTA, hashtags) using a template per content type. Visual: HTML-to-image via Puppeteer renders a code card or project summary card. Carousel slides for hackathon posts (hook → what it does → tech stack → team/link). Image is exported as JPEG ready for the Graph API.
 
-**Filters:**
-- Exclude repos already on GitHub Trending
-- Exclude repos covered by TLDR, HN front page, or similar in the last 7 days (optional v2)
-- Minimum threshold: e.g. >200% star growth in 48hrs with a base of at least 20 stars
-- Language filter: configurable (default: all)
+`Puppeteer` `HTML-to-image` `carousel`
 
-**Output:** Ranked list of 10–15 repo candidates with raw star delta and growth rate.
+### 6. Instagram publish
+Posts via the official Instagram Graph API using a Business account linked to a Facebook Page. Supports image posts and carousels. Posting times are varied within a ±15-minute window of target time to avoid pattern detection. Token refresh is automated. A post-publish log entry is written to the seen-store.
 
-**API used:** `GET /repos/{owner}/{repo}` + `GET /repos/{owner}/{repo}/stargazers` with timestamps, or GitHub Archive / GH Torrent for historical data.
+`Graph API` `long-lived token` `Business account`
 
 ---
 
-### 2. AI Evaluation Agent
+## Content schedule
 
-**What it does:** For each candidate repo, Claude reads:
-- README
-- Recent commits (last 10)
-- Open issues (top 10 by engagement)
-- Repo description + topics
-
-**Output per repo:**
-```json
-{
-  "repo": "owner/repo-name",
-  "stars_48h": 450,
-  "growth_pct": 312,
-  "summary": "One paragraph plain-English explanation of what it does",
-  "why_interesting": "Why this is worth paying attention to right now",
-  "audience": "Who this is for — developers, designers, researchers, etc.",
-  "novelty_score": 8,
-  "explainability_score": 9,
-  "overall_score": 8.5
-}
-```
-
-**Scoring rubric:**
-- **Novelty** (1–10): Is this genuinely new or a clone of something existing?
-- **Explainability** (1–10): Can this be explained in one Instagram caption to a general dev audience?
-- **Overall** (1–10): Weighted composite, used to rank the shortlist
-
-**Output:** Top 3–5 repos with full evaluations, ranked by overall score.
+| Day | Type | Format |
+|---|---|---|
+| **Monday** | GitHub repo | Trending repo of the week — code card visual, single image post |
+| **Wednesday** | Hackathon | Standout hackathon project — carousel format, "Built in X hours" hook |
+| **Friday** | GitHub repo | Second repo of the week — code card visual, single image post |
 
 ---
 
-### 3. Human Review Digest
+## Success metrics (90 days)
 
-**What it does:** Sends you a daily digest (email or Telegram message) with the top picks. For each:
-- Repo name + link
-- Star velocity stats
-- Claude's summary + why interesting
-- Two buttons: ✅ Approve / ❌ Reject
-
-**Implementation options:**
-- Simple: Python script outputs a formatted markdown file you open manually
-- Better: Telegram bot — each pick is a message with inline approve/reject buttons
-- Best v2: Minimal web dashboard at localhost
-
-**Approved repos** get passed to the formatter. Rejected ones are logged and excluded from future consideration for 30 days.
-
----
-
-### 4. Post Formatter
-
-**What it does:** Takes an approved repo and generates the Instagram post assets.
-
-**Caption format:**
-```
-🔭 [Repo Name] by @owner
-
-[One-line hook — what it does]
-
-[2–3 bullets on why it's interesting]
-
-⭐ [X stars in 48hrs]
-🔗 Link in bio
-
-#github #opensource #programming #buildinpublic [relevant tags]
-```
-
-**Image:** Auto-generated card with:
-- Repo name in large type
-- Star velocity stat
-- Short tagline
-- Minimal dark background, code aesthetic
-
-**Image generation options:**
-- Python + Pillow for v1 (simple, fully local)
-- HTML template → headless Chrome screenshot for v2 (more polish)
-
----
-
-### 5. Instagram Publisher
-
-**What it does:** Schedules and posts the formatted content to Instagram.
-
-**API:** Instagram Graph API (requires Facebook Developer account + connected Instagram Business account)
-
-**Flow:**
-1. Upload image to Instagram container endpoint
-2. Attach caption
-3. Schedule publish time (optimal: 9am or 7pm based on engagement data)
-4. Confirm post
-
-**Rate limits:** Instagram allows ~25 posts/day — well within scope.
-
----
-
-## Tech Stack
-
-| Layer | Tool |
+| Metric | Target |
 |---|---|
-| Language | Python 3.11+ |
-| Scheduler | `cron` or `APScheduler` |
-| GitHub data | GitHub REST API (free, 5000 req/hr authenticated) |
-| AI evaluation | Claude API (claude-sonnet-4) |
-| Digest delivery | Telegram Bot API |
-| Image generation | Pillow (v1) |
-| Publishing | Instagram Graph API |
-| Storage | SQLite (repo history, approval log, post log) |
+| Followers | 1k+ |
+| Posts skipped by error | <5% |
+| Avg engagement rate | 4%+ |
+| API violations / flags | 0 |
 
 ---
 
-## Data Model
+## Competitive landscape
 
-**repos_seen**
-```
-id, owner, name, first_seen_at, stars_at_detection, stars_48h_delta, growth_pct, excluded_until
-```
-
-**evaluations**
-```
-id, repo_id, evaluated_at, summary, why_interesting, novelty_score, explainability_score, overall_score, approved (bool)
-```
-
-**posts**
-```
-id, repo_id, evaluation_id, caption, image_path, posted_at, instagram_post_id
-```
-
----
-
-## Build Order
-
-1. **GitHub star velocity scanner** — get the data pipeline working, validate the signal is real
-2. **Claude evaluation** — prompt engineering to get consistent, good writeups
-3. **Telegram digest** — approve/reject loop
-4. **Image card generator** — Pillow template
-5. **Instagram Graph API** — connect and test posting
-6. **End-to-end test** — full run, one real post
-7. **Cron automation** — set it and forget it
-
-Estimated time: 2–3 focused weekends.
+| Competitor | Description | Gap |
+|---|---|---|
+| TLDR / daily.dev | Human-curated dev content, newsletter-first. No Instagram presence. | No overlap |
+| ByteByteGo | System design focused. Instagram presence but manually produced. | Adjacent |
+| Devpost itself | Has social accounts but posts inconsistently, no editorial filter. | No overlap |
+| GitHub trending bots | Twitter bots that just list repos. No evaluation, no Instagram, no visuals. | No overlap |
 
 ---
 
 ## Risks
 
-| Risk | Mitigation |
-|---|---|
-| GitHub API rate limits | Authenticated requests = 5000/hr, more than enough |
-| Instagram Graph API is painful to set up | Budget a day just for this — it requires business account, Facebook app approval |
-| Claude writes boring summaries | Invest in prompt engineering early, lock it in before automating |
-| Star velocity signal is noisy (spam repos, follow-for-follow bots) | Add secondary filters: repo age, commit activity, contributor count |
-| Burn out on approving daily | Keep approval lightweight — Telegram inline buttons, <2 min/day |
+| Severity | Risk | Mitigation |
+|---|---|---|
+| **High** | GitHub scrape breaking | Trending page layout change kills scraper. Search API as primary, scrape as bonus signal only. |
+| **High** | Instagram token expiry | Long-lived tokens expire after 60 days. Automated refresh 2 weeks before expiry with alert on failure. |
+| **Medium** | LLM misjudges hype | Model scores a bad repo highly. Confidence threshold + low-score skip; review log weekly early on. |
+| **Medium** | Devpost scrape ToS | Gray area. Polite rate limits, respect robots.txt, attribute builders prominently in posts. |
+| **Low** | Duplicate content | Same repo posted twice. Seen-log with 30-day TTL checked before every post generation step. |
+| **Low** | Instagram pattern detection | Posting at exact same time daily flags automation. ±15 min random offset on all post times. |
 
 ---
 
-## Success Metrics
+## Pivots & expansions
 
-- Pipeline runs daily without intervention
-- 5+ posts per week published
-- Approval rate >50% (signal quality is good)
-- At least one repo discovered that blows up after posting (the dream)
+- **Newsletter layer** — Same pipeline feeds a weekly Beehiiv digest. Email is algorithm-independent and buildable in parallel. Unlocks sponsorship revenue faster than Instagram.
+- **Cross-platform publish** — Same generated content posted to X and LinkedIn with minor format tweaks. Minimal extra engineering, 3x distribution.
+- **HackerNews "Show HN" source** — HN's Show HN feed is rich with indie builders. Same pipeline, new source. Adds a different demographic (solo hackers vs. hackathon teams).
+- **B2B intel reports** — Sell the weekly trend-scouting output as a structured report to dev tool companies. Same data, different packaging. Subscription model, high margin.
+- **Web destination** — Each post becomes a page on a website. SEO surface for "best hackathon projects 2026" type queries. Long-term moat that Instagram alone can't build.
 
 ---
 
-## Future / V2
+## Build phases
 
-- Web dashboard instead of Telegram for review
-- Cross-post to Twitter/X and a web newsletter
-- Public "leaderboard" of repos discovered vs their eventual star count
-- Let followers submit repo nominations
-- Kalshi-style prediction: "will this repo hit 1k stars in 7 days?"
+### Phase 1 — Core loop (Week 1)
+- GitHub Search API integration + dedup store
+- LLM evaluator prompt + scoring
+- Caption generator (repo template)
+- Manual Instagram post (validate output quality)
+
+### Phase 2 — Visuals + publish (Week 2)
+- Puppeteer HTML-to-image code card renderer
+- Instagram Graph API integration + token refresh
+- GitHub trending scraper (secondary source)
+- Full automated repo → post loop live
+
+### Phase 3 — Hackathon source (Week 3)
+- Devpost scraper + hackathon evaluator prompt
+- Carousel post format + slide generator
+- Content-type classifier routing
+- Mixed schedule (Mon repo / Wed hackathon / Fri repo)
+
+### Phase 4 — Sandbox trial (Week 4+)
+- Docker sandbox for CLI tool execution
+- Playwright demo screenshot for hackathon projects
+- Graceful fallback if trial fails
+
+---
+
+## Out of scope (v1)
+
+Automated engagement (likes, follows, comments). Reels format. Multi-platform publishing. Web destination. B2B reports. These are post-traction additions only.
