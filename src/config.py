@@ -36,21 +36,6 @@ class Settings(BaseModel):
     db_path: str = "reporadar.db"
     output_dir: str = "output"
 
-    # --- image hosting ---
-    image_host_endpoint: str | None = None  # e.g. https://<accountid>.r2.cloudflarestorage.com (R2) or empty for AWS
-    image_host_bucket: str | None = None
-    image_host_region: str = "auto"
-    image_host_public_base_url: str | None = None  # public read URL prefix
-    image_host_access_key: str | None = None
-    image_host_secret_key: str | None = None
-
-    # --- instagram ---
-    ig_access_token: str | None = None
-    ig_business_account_id: str | None = None
-    ig_app_id: str | None = None
-    ig_app_secret: str | None = None
-    ig_dry_run: bool = False
-
     # --- scheduling ---
     schedule_hour: int = 6  # local time hour to fire pipeline
     schedule_jitter_minutes: int = 15  # ±15 min per PRD
@@ -124,19 +109,6 @@ class Settings(BaseModel):
 
             db_path=os.environ.get("DB_PATH", "reporadar.db"),
             output_dir=os.environ.get("OUTPUT_DIR", "output"),
-
-            image_host_endpoint=os.environ.get("IMAGE_HOST_ENDPOINT") or None,
-            image_host_bucket=os.environ.get("IMAGE_HOST_BUCKET") or None,
-            image_host_region=os.environ.get("IMAGE_HOST_REGION", "auto"),
-            image_host_public_base_url=os.environ.get("IMAGE_HOST_PUBLIC_BASE_URL") or None,
-            image_host_access_key=os.environ.get("IMAGE_HOST_ACCESS_KEY") or None,
-            image_host_secret_key=os.environ.get("IMAGE_HOST_SECRET_KEY") or None,
-
-            ig_access_token=os.environ.get("IG_ACCESS_TOKEN") or None,
-            ig_business_account_id=os.environ.get("IG_BUSINESS_ACCOUNT_ID") or None,
-            ig_app_id=os.environ.get("IG_APP_ID") or None,
-            ig_app_secret=os.environ.get("IG_APP_SECRET") or None,
-            ig_dry_run=os.environ.get("IG_DRY_RUN", "0") in ("1", "true", "True"),
 
             schedule_hour=int(os.environ.get("SCHEDULE_HOUR", "6")),
             schedule_jitter_minutes=int(os.environ.get("SCHEDULE_JITTER_MINUTES", "15")),

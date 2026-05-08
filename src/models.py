@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 ContentType = Literal["repo", "hackathon"]
 MediaType = Literal["single", "carousel"]
-PostStatus = Literal["pending", "rendered", "uploaded", "published", "failed"]
+PostStatus = Literal["pending", "rendered", "failed"]
 
 
 class Candidate(BaseModel):
@@ -85,13 +85,12 @@ class RenderResult(BaseModel):
     paths: list[str]
 
 
-class PublishedPost(BaseModel):
+class SavedPost(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     post_id: int
-    instagram_media_id: str
-    instagram_permalink: str
-    published_at: datetime
+    card_paths: list[str]
+    caption: str
 
 
 class PipelineRun(BaseModel):

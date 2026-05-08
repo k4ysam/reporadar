@@ -109,8 +109,7 @@ def get_recent_posts(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
         """
         SELECT
             p.id, p.content_type, p.media_type, p.status,
-            p.instagram_permalink, p.published_at, p.error_message,
-            p.image_host_urls, p.card_paths, p.retry_count,
+            p.error_message, p.card_paths, p.caption,
             r.full_name AS repo_name, h.project_name AS hack_name
         FROM posts p
         LEFT JOIN repos_seen r          ON r.id = p.repo_id
@@ -123,10 +122,6 @@ def get_recent_posts(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
     out = []
     for row in rows:
         try:
-            urls = json.loads(row["image_host_urls"]) if row["image_host_urls"] else []
-        except Exception:
-            urls = []
-        try:
             paths = json.loads(row["card_paths"]) if row["card_paths"] else []
         except Exception:
             paths = []
@@ -137,12 +132,11 @@ def get_recent_posts(conn: sqlite3.Connection, limit: int = 20) -> list[dict]:
                 "media_type": row["media_type"],
                 "status": row["status"],
                 "name": row["repo_name"] or row["hack_name"] or "—",
-                "permalink": row["instagram_permalink"],
-                "published_at": _fmt_dt(row["published_at"]),
                 "error_message": row["error_message"],
-                "first_url": urls[0] if urls else None,
+                "card_paths": paths,
                 "first_path": paths[0] if paths else None,
-                "retry_count": row["retry_count"],
+                "slide_count": len(paths),
+                "caption": row["caption"],
             }
         )
     return out

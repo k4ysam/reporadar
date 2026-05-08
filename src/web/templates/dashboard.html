@@ -10,17 +10,17 @@
   <header>
     <h1>RepoRadar</h1>
     <span class="date">{{ today }}</span>
-    <span class="ro-pill">read-only · publishing is automated</span>
+    <span class="ro-pill">read-only · posts saved locally for review</span>
   </header>
 
   <main>
     <section>
-      <h2>Posts <span class="count">{{ posts|length }}</span></h2>
+      <h2>Posts awaiting review <span class="count">{{ posts|length }}</span></h2>
       {% if posts %}
       <table>
         <thead>
           <tr>
-            <th>Status</th><th>Type</th><th>Subject</th><th>Permalink</th><th>Published</th><th>Retries</th>
+            <th>Status</th><th>Type</th><th>Subject</th><th>Image(s)</th>
           </tr>
         </thead>
         <tbody>
@@ -29,11 +29,14 @@
             <td><span class="status status-{{ p.status }}">{{ p.status }}</span></td>
             <td>{{ p.content_type }} / {{ p.media_type }}</td>
             <td>{{ p.name }}</td>
-            <td>{% if p.permalink %}<a href="{{ p.permalink }}" target="_blank" rel="noopener">{{ p.permalink }}</a>{% else %}—{% endif %}</td>
-            <td>{{ p.published_at }}</td>
-            <td class="num">{{ p.retry_count }}</td>
+            <td>
+              {% if p.first_path %}
+                <code>{{ p.first_path }}</code>{% if p.slide_count > 1 %} <span class="kind">+{{ p.slide_count - 1 }} more</span>{% endif %}
+              {% else %}—{% endif %}
+            </td>
           </tr>
-          {% if p.error_message %}<tr><td colspan="6" class="error-msg">{{ p.error_message }}</td></tr>{% endif %}
+          {% if p.caption %}<tr><td colspan="4" class="summary">{{ p.caption }}</td></tr>{% endif %}
+          {% if p.error_message %}<tr><td colspan="4" class="error-msg">{{ p.error_message }}</td></tr>{% endif %}
           {% endfor %}
         </tbody>
       </table>
