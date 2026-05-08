@@ -219,12 +219,13 @@ def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
     from src.publisher.token_manager import check_and_alert
     from src.sources.github_repos.client import GithubClient
 
+    run_id = _start_run(db)
     print(f"LLM_PROVIDER={settings.llm_provider}")
     issues: list[str] = []
 
     # GitHub
     try:
-        gh = GithubClient(db, "verify", settings.gh_token)
+        gh = GithubClient(db, run_id, settings.gh_token)
         rate = gh.get_rate_limit()
         remaining = rate["resources"]["core"]["remaining"]
         print(f"GitHub OK — {remaining}/5000 core requests remaining")
@@ -235,7 +236,7 @@ def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
     try:
         from src.llm.provider import get_provider
 
-        provider = get_provider(settings, db, "verify")
+        provider = get_provider(settings, db, run_id)
         sample = provider.generate("Reply with the single word OK.", system="Be terse.")
         print(f"LLM ({provider.name}) OK — sample: {sample[:60]!r}")
     except Exception as exc:
@@ -267,7 +268,9 @@ def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
         print("\nIssues:")
         for msg in issues:
             print(f"  - {msg}")
+        _finish_run(db, run_id, error="; ".join(issues))
         return 1
+    _finish_run(db, run_id)
     print("\nAll checks passed.")
     return 0
 
