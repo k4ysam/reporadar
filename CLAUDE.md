@@ -13,7 +13,7 @@ All assume venv active and `.env` populated (see `.env.template`).
 ```bash
 python -m src scan-repos        # GitHub Search API → repos_seen
 python -m src scan-hackathons   # Devpost scrape → hackathon_projects
-python -m src evaluate          # LLM-evaluate unevaluated rows (per-provider daily budget)
+python -m src evaluate          # LLM-evaluate unevaluated rows
 python -m src run               # Discover + evaluate repos + hackathons, render + save the top post
 python -m src serve             # Read-only monitoring dashboard
 python -m src daemon            # APScheduler daemon
@@ -32,7 +32,7 @@ pytest tests/render/test_renderer.py -q       # one file
 
 ### LLM provider abstraction (`src/llm/provider.py`)
 
-`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). The default is `openai`. All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name. The daily budget guard in `evaluator/batch.py` filters by the active provider's name.
+`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). The default is `openai`. All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name.
 
 ### Discovery (`src/sources/`)
 
@@ -41,7 +41,7 @@ pytest tests/render/test_renderer.py -q       # one file
 
 ### Evaluation (`src/evaluator/`)
 
-- `batch.evaluate_candidates` (repos) and `batch.evaluate_hackathon_candidates` (hackathons). Both: 7-day dedup, daily budget guard against the active provider, `max_evaluations_per_run` cap, per-candidate exception isolation.
+- `batch.evaluate_candidates` (repos) and `batch.evaluate_hackathon_candidates` (hackathons). Both: 7-day dedup, `max_evaluations_per_run` cap, per-candidate exception isolation.
 - `evaluator.evaluate_candidate` builds prompt from `RepoContext` (README + commits + issues). `evaluator.evaluate_hackathon` uses `build_hackathon_prompt` directly (no fetcher).
 - LLM JSON parsing is lenient: strips ```json fences, retries once with "return ONLY valid JSON" if first parse fails.
 - Stores both `raw_response` (canonical) and `claude_raw_response` (legacy column name retained for back-compat with rows from earlier builds).
@@ -74,7 +74,7 @@ Shows: posts awaiting review (with caption + local image paths), recent evaluati
 - `evaluations` has both `repo_id` and `hackathon_id` (one is NULL); `content_type` is the discriminator.
 - `posts.repo_id` / `posts.hackathon_id` are UNIQUE — DB-level idempotency for "one saved post per source".
 - `posts.status` lifecycle: `pending → rendered`, or `failed`.
-- `api_calls` is the source of truth for daily budget counting. New LLM calls must log via the provider's `_log_call` helper (or directly via `db.log_api_call`) or budgets break silently.
+- `api_calls` records every LLM/HTTP call for observability. New LLM calls should log via the provider's `_log_call` helper (or directly via `db.log_api_call`) so the dashboard reflects activity.
 
 ## Models (`src/models.py`)
 

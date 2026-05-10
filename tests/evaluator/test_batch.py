@@ -113,27 +113,3 @@ def test_exception_isolation(tmp_db, mock_run_id):
         candidates, provider, _mock_github(), tmp_db, mock_run_id, _settings()
     )
     assert len(results) == 1
-
-
-def test_daily_budget_blocks(tmp_db, mock_run_id):
-    """If today's api_calls already at limit, batch returns []."""
-    _seed_repo(tmp_db, "owner/repo-1", 1)
-    tmp_db.execute(
-        "INSERT INTO pipeline_runs (run_id, started_at, status) VALUES (?, '2026-05-01', 'running')",
-        (mock_run_id,),
-    )
-    tmp_db.commit()
-    now = datetime.now(timezone.utc).isoformat()
-    for _ in range(20):  # default daily limit
-        tmp_db.execute(
-            "INSERT INTO api_calls (run_id, service, endpoint, status_code, latency_ms, called_at) "
-            "VALUES (?, 'gemini', '/x', 200, 10, ?)",
-            (mock_run_id, now),
-        )
-    tmp_db.commit()
-    candidates = [_candidate(1, "owner/repo-1")]
-    from src.evaluator.batch import evaluate_candidates
-    results = evaluate_candidates(
-        candidates, _mock_provider(), _mock_github(), tmp_db, mock_run_id, _settings()
-    )
-    assert results == []
