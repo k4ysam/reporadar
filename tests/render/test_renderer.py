@@ -128,7 +128,7 @@ def test_render_repo_card_calls_openai_and_writes_jpeg(tmp_path, tmp_db, mock_ru
 
     client_mock.images.generate.assert_called_once()
     call_kwargs = client_mock.images.generate.call_args.kwargs
-    assert call_kwargs["model"] == "gpt-image-1"
+    assert call_kwargs["model"] == "gpt-image-2"
     assert call_kwargs["size"] == "1024x1024"
     assert call_kwargs["n"] == 1
     assert "A 1MS KV STORE, IN PURE PYTHON." in call_kwargs["prompt"]

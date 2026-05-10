@@ -13,7 +13,7 @@ openai>=1.100.0
 beautifulsoup4>=4.12
 lxml>=5.1
 
-# rendering (OpenAI gpt-image-1 returns base64 PNG; Pillow converts to JPEG)
+# rendering (OpenAI gpt-image-2 returns base64 PNG; Pillow converts to JPEG)
 Pillow>=10.0
 
 # scheduling
