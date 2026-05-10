@@ -3,7 +3,6 @@ requests>=2.31
 pydantic>=2.0
 python-dotenv>=1.0
 flask>=3.0
-jinja2>=3.1
 
 # llm providers (one of these is required at runtime)
 anthropic>=0.40
@@ -14,8 +13,7 @@ openai>=1.100.0
 beautifulsoup4>=4.12
 lxml>=5.1
 
-# rendering
-playwright>=1.45
+# rendering (OpenAI gpt-image-1 returns base64 PNG; Pillow converts to JPEG)
 Pillow>=10.0
 
 # scheduling

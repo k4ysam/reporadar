@@ -20,7 +20,9 @@ def _seed_run(db, run_id):
 
 def test_get_provider_returns_gemini(tmp_db, mock_run_id):
     _seed_run(tmp_db, mock_run_id)
-    settings = Settings(gh_token="x", gemini_api_key="AIza", llm_provider="gemini")
+    settings = Settings(
+        gh_token="x", gemini_api_key="AIza", openai_api_key="sk-test", llm_provider="gemini"
+    )
     with patch("google.generativeai.configure") as cfg:
         provider = get_provider(settings, tmp_db, mock_run_id)
     assert isinstance(provider, GeminiProvider)
@@ -31,7 +33,7 @@ def test_get_provider_returns_gemini(tmp_db, mock_run_id):
 def test_get_provider_returns_claude(tmp_db, mock_run_id):
     _seed_run(tmp_db, mock_run_id)
     settings = Settings(
-        gh_token="x", anthropic_api_key="sk-ant-x", llm_provider="claude"
+        gh_token="x", anthropic_api_key="sk-ant-x", openai_api_key="sk-test", llm_provider="claude"
     )
     with patch("anthropic.Anthropic") as anth:
         provider = get_provider(settings, tmp_db, mock_run_id)
@@ -58,7 +60,7 @@ def test_get_provider_returns_openai(tmp_db, mock_run_id, monkeypatch):
 def test_claude_provider_logs_api_call(tmp_db, mock_run_id):
     _seed_run(tmp_db, mock_run_id)
     settings = Settings(
-        gh_token="x", anthropic_api_key="sk-ant-x", llm_provider="claude"
+        gh_token="x", anthropic_api_key="sk-ant-x", openai_api_key="sk-test", llm_provider="claude"
     )
     with patch("anthropic.Anthropic") as anth_cls:
         client_mock = MagicMock()

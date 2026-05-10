@@ -21,7 +21,8 @@ from src.evaluator.batch import evaluate_candidates, evaluate_hackathon_candidat
 from src.llm.provider import get_provider
 from src.models import Evaluation, HackathonCandidate, SavedPost
 from src.publisher.publisher import save_post
-from src.render.renderer import render_hackathon_carousel, render_repo_card
+from src.render.image_gen import OpenAIImageClient
+from src.render.renderer import render_hackathon_card, render_repo_card
 from src.sources.devpost.scanner import scan_devpost
 from src.sources.github_repos.client import GithubClient
 from src.sources.github_repos.scanner import scan as scan_repos
@@ -104,10 +105,12 @@ def run_repo_pipeline(
         # Find the matching candidate to grab language for the card
         match = next((c for c in candidates if c.full_name == top.full_name), None)
         caption = generate_repo_caption(top, provider)
+        image_client = OpenAIImageClient(db, run_id, settings.openai_api_key)
         render = render_repo_card(
             top,
             caption,
             settings.output_dir,
+            image_client,
             window_hours=settings.velocity_window_hours,
             language=match.language if match else None,
         )
@@ -159,7 +162,8 @@ def run_hackathon_pipeline(
             return None
 
         caption = generate_hackathon_caption(top, match, provider)
-        render = render_hackathon_carousel(top, match, caption, settings.output_dir)
+        image_client = OpenAIImageClient(db, run_id, settings.openai_api_key)
+        render = render_hackathon_card(top, match, caption, settings.output_dir, image_client)
 
         eval_id = _eval_id(db, top)
         if eval_id is None:

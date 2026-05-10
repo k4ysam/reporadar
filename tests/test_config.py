@@ -45,11 +45,23 @@ def test_missing_openai_key_raises(monkeypatch):
         Settings.from_env()
 
 
+def test_missing_openai_key_raises_even_for_other_providers(monkeypatch):
+    """Image generation always uses OpenAI, so OPENAI_API_KEY is required even when
+    LLM_PROVIDER selects a different provider for evaluation/caption text."""
+    _clear(monkeypatch)
+    monkeypatch.setenv("GH_TOKEN", "ghp_test")
+    monkeypatch.setenv("LLM_PROVIDER", "claude")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+        Settings.from_env()
+
+
 def test_claude_provider_with_key(monkeypatch):
     _clear(monkeypatch)
     monkeypatch.setenv("GH_TOKEN", "ghp_test")
     monkeypatch.setenv("LLM_PROVIDER", "claude")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-x")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")  # always required for image gen
     s = Settings.from_env()
     assert s.llm_provider == "claude"
     assert s.anthropic_api_key == "sk-ant-x"
