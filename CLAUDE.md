@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Discovery + post-generation pipeline for promising open-source projects. Discovers GitHub repos via the Search API + hackathon projects via Devpost scrape, evaluates with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, and renders 1080×1080 JPEGs via Playwright. **Posts are saved locally for human review** — no automatic upload or publishing. APScheduler daemon fires Mon repo / Wed hackathon carousel / Fri repo.
+Discovery + post-generation pipeline for promising open-source projects. Discovers GitHub repos via the Search API + hackathon projects via Devpost scrape, evaluates both pools with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, and renders 1080×1080 JPEGs via Playwright. **Posts are saved locally for human review** — no automatic upload or publishing. APScheduler daemon runs the combined repo + hackathon pipeline daily.
 
 ## Commands
 
@@ -14,8 +14,7 @@ All assume venv active and `.env` populated (see `.env.template`).
 python -m src scan-repos        # GitHub Search API → repos_seen
 python -m src scan-hackathons   # Devpost scrape → hackathon_projects
 python -m src evaluate          # LLM-evaluate unevaluated rows (per-provider daily budget)
-python -m src run               # Discover + evaluate + render + save post for today's content type
-python -m src run --day 0       # Force a weekday (0=Mon..6=Sun)
+python -m src run               # Discover + evaluate repos + hackathons, render + save the top post
 python -m src serve             # Read-only monitoring dashboard
 python -m src daemon            # APScheduler daemon
 python -m src verify-env        # Smoke-test all configured external services
@@ -62,8 +61,8 @@ There is no upload, no Instagram client, no token management, no retry logic. Th
 
 ### Orchestration (`src/pipeline.py`, `src/scheduler/daemon.py`)
 
-- `run_for_today` dispatches on weekday: 0/4 → repo pipeline; 2 → hackathon pipeline.
-- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the pipeline.
+- `run_pipeline` scans repos and hackathon projects in one run, evaluates both pools, then renders/saves the highest-scoring eligible candidate across all content types.
+- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the combined pipeline.
 
 ### Read-only dashboard (`src/web/`)
 

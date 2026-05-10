@@ -19,8 +19,14 @@ def compute_velocity(
     github_repo_id: int = repo["id"]
 
     row = db.execute(
-        "SELECT id, star_count_at_last_scan, excluded_until, already_posted FROM repos_seen WHERE full_name = ?",
-        (full_name,),
+        """
+        SELECT id, first_seen_at, star_count_at_last_scan, excluded_until, already_posted
+        FROM repos_seen
+        WHERE full_name = ? OR github_repo_id = ?
+        ORDER BY CASE WHEN full_name = ? THEN 0 ELSE 1 END
+        LIMIT 1
+        """,
+        (full_name, github_repo_id, full_name),
     ).fetchone()
 
     if row:
@@ -49,9 +55,7 @@ def compute_velocity(
         return None
 
     created_at = datetime.fromisoformat(repo["created_at"].replace("Z", "+00:00"))
-    first_seen_at = datetime.now(timezone.utc) if not row else datetime.fromisoformat(
-        db.execute("SELECT first_seen_at FROM repos_seen WHERE full_name=?", (full_name,)).fetchone()[0]
-    )
+    first_seen_at = datetime.now(timezone.utc) if not row else datetime.fromisoformat(row["first_seen_at"])
 
     return Candidate(
         repo_id=github_repo_id,

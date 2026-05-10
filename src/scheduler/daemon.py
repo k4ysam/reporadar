@@ -1,6 +1,6 @@
 """APScheduler daemon. Daily fire at SCHEDULE_HOUR ±SCHEDULE_JITTER_MINUTES.
 
-Generates a post for the day's content type and saves it locally for human review.
+Generates the top post across all content types and saves it locally for human review.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from src.config import Settings
 from src.db import get_db, init_db
-from src.pipeline import run_for_today
+from src.pipeline import run_pipeline
 
 _log = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def _content_job(settings: Settings) -> None:
 
     db = get_db(settings.db_path)
     try:
-        run_for_today(db, settings)
+        run_pipeline(db, settings)
     except Exception as exc:
         _log.exception("Pipeline run raised: %s", exc)
     finally:

@@ -86,6 +86,36 @@ def test_scan_upserts_even_when_velocity_none(tmp_db, mock_run_id):
     assert row[0] == 5
 
 
+def test_scan_updates_repo_name_when_github_id_matches(tmp_db, mock_run_id):
+    old_name = "old-owner/repo-1"
+    repo = _make_repo(1, stars=500) | {"full_name": "new-owner/repo-1"}
+    client = _make_client([repo])
+    tmp_db.execute(
+        "INSERT INTO pipeline_runs (run_id, started_at, status) VALUES (?, '2026-05-01', 'running')",
+        (mock_run_id,),
+    )
+    tmp_db.execute(
+        """
+        INSERT INTO repos_seen (
+            full_name, github_repo_id, first_seen_at, last_scan_at, star_count_at_last_scan
+        )
+        VALUES (?, ?, '2026-05-01', '2026-05-01', 100)
+        """,
+        (old_name, repo["id"]),
+    )
+    tmp_db.commit()
+
+    scan(tmp_db, _settings(), mock_run_id, client=client)
+
+    rows = tmp_db.execute(
+        "SELECT full_name, github_repo_id, star_count_at_last_scan FROM repos_seen"
+    ).fetchall()
+    assert len(rows) == 1
+    assert rows[0]["full_name"] == "new-owner/repo-1"
+    assert rows[0]["github_repo_id"] == repo["id"]
+    assert rows[0]["star_count_at_last_scan"] == 500
+
+
 def test_scan_aborts_on_low_rate_limit(tmp_db, mock_run_id):
     repos = [_make_repo(i) for i in range(3)]
     client = _make_client(repos, rate_remaining=100)

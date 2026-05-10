@@ -248,16 +248,15 @@ def cmd_evaluate(args, settings, db: sqlite3.Connection) -> int:
 
 
 def cmd_run(args, settings, db: sqlite3.Connection) -> int:
-    """Run the full pipeline for today's content type."""
+    """Run the full pipeline across repos and hackathon projects."""
     from src.logger import get_logger
-    from src.pipeline import run_for_today
+    from src.pipeline import run_pipeline
 
     log = get_logger("reporadar.run", "manual")
-    day = args.day if args.day is not None else None
     try:
-        result = run_for_today(db, settings, day_of_week=day)
+        result = run_pipeline(db, settings)
         if result is None:
-            print("Pipeline finished without saving a post (nothing eligible or non-publish day).")
+            print("Pipeline finished without saving a post (nothing eligible).")
             return 0
         print(f"Saved post {result.post_id} for review:")
         for path in result.card_paths:
@@ -396,8 +395,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("scan-hackathons", help="Scrape Devpost for prize-winning hackathon projects")
     sub.add_parser("evaluate", help="Evaluate any unevaluated repos and hackathons with the LLM")
 
-    run_p = sub.add_parser("run", help="Run today's pipeline (Mon/Fri repo, Wed hackathon)")
-    run_p.add_argument("--day", type=int, default=None, help="0=Mon … 6=Sun (overrides today)")
+    sub.add_parser("run", help="Run the combined repo and hackathon pipeline")
 
     serve_p = sub.add_parser("serve", help="Start the read-only monitoring dashboard")
     serve_p.add_argument("--host", default="127.0.0.1")

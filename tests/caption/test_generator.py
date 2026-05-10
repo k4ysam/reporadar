@@ -44,14 +44,16 @@ def test_generate_repo_caption_returns_caption():
     assert isinstance(cap, Caption)
     assert cap.hook.startswith("A 1ms")
     assert "python" in cap.hashtags
+    assert cap.source_links == ["GitHub: https://github.com/owner/repo"]
 
 
 def test_caption_render_under_2200_chars():
     cap = generate_repo_caption(_eval(), _provider(GOOD_CAPTION_JSON))
     assert len(cap.render()) <= 2200
     rendered = cap.render()
-    assert cap.hook in rendered
+    assert rendered.startswith(cap.hook)
     assert "#python" in rendered
+    assert rendered.endswith("GitHub: https://github.com/owner/repo")
 
 
 def test_strips_hash_prefix_in_hashtags():
@@ -78,8 +80,14 @@ def test_generate_hackathon_caption():
         project_name="PixelChef",
         prize="Best Overall",
         github_url="https://github.com/x/y",
+        demo_url="https://pixelchef.example",
         first_seen_at=datetime.now(timezone.utc),
         technologies=["python", "ffmpeg"],
     )
     cap = generate_hackathon_caption(_eval("hackathon"), candidate, _provider(GOOD_CAPTION_JSON))
     assert cap.hook
+    assert cap.source_links == [
+        "Project: https://devpost.com/software/x",
+        "GitHub: https://github.com/x/y",
+        "Demo: https://pixelchef.example",
+    ]

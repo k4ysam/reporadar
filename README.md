@@ -3,11 +3,9 @@
 Discovery + post-generation pipeline that finds trending GitHub repos and standout hackathon projects, evaluates them with an LLM, and renders Instagram-ready images. Posts are saved locally for human review — no automatic publishing.
 
 ```
-GitHub Search API   →                                              ┌── Mon repo
-                       Velocity scan → LLM evaluation              │
-Devpost (Wed)       →                  → Caption gen → Render →    ├── Wed carousel  →  output/*.jpg
-                                                                   │   (review locally)
-                                                                   └── Fri repo
+GitHub Search API   → Velocity scan ┐
+                                    ├─ LLM evaluation → pick top → Caption gen → Render → output/*.jpg
+Devpost scraper     → Project scan ┘                                        (review locally)
 ```
 
 ## Setup
@@ -52,8 +50,7 @@ Pings GitHub, your chosen LLM, and confirms the output directory is writable. Re
 python -m src scan-repos        # GitHub Search API: rising repos → repos_seen
 python -m src scan-hackathons   # Devpost scraper → hackathon_projects
 python -m src evaluate          # LLM-evaluate any unevaluated rows (respects daily budget)
-python -m src run               # Run TODAY'S pipeline (Mon/Fri repo, Wed hackathon, else no-op)
-python -m src run --day 2       # Force a specific weekday (0=Mon..6=Sun)
+python -m src run               # Scan/evaluate repos + hackathons, then render the top candidate
 python -m src serve             # Read-only monitoring dashboard (http://localhost:8000)
 python -m src daemon            # APScheduler daemon — fires daily at SCHEDULE_HOUR ±jitter
 ```
@@ -85,7 +82,7 @@ src/
 │   └── static/style.css
 ├── publisher/
 │   └── publisher.py    save_post — write the rendered post to the DB for human review
-├── pipeline.py         run_repo_pipeline / run_hackathon_pipeline / run_for_today
+├── pipeline.py         run_pipeline across repo + hackathon candidates
 ├── scheduler/
 │   └── daemon.py       APScheduler at SCHEDULE_HOUR ±SCHEDULE_JITTER_MINUTES
 ├── web/

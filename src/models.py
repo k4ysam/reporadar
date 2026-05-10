@@ -69,12 +69,17 @@ class Caption(BaseModel):
     body: str
     cta: str
     hashtags: list[str] = Field(default_factory=list)
+    source_links: list[str] = Field(default_factory=list)
 
     def render(self) -> str:
-        tag_line = " ".join(f"#{h.lstrip('#')}" for h in self.hashtags)
-        text = f"{self.hook}\n\n{self.body}\n\n{self.cta}"
+        tag_line = " ".join(f"#{h.lstrip('#')}" for h in self.hashtags if h.strip())
+        links = [link.strip() for link in self.source_links if link.strip()]
+        sections = [part.strip() for part in (self.hook, self.body, self.cta) if part.strip()]
         if tag_line:
-            text = f"{text}\n\n{tag_line}"
+            sections.append(tag_line)
+        if links:
+            sections.append("Links:\n" + "\n".join(links))
+        text = "\n\n".join(sections)
         return text[:2200]
 
 

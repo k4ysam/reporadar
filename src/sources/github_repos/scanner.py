@@ -9,6 +9,43 @@ from src.sources.github_repos.client import GithubClient
 from src.sources.github_repos.velocity import compute_velocity
 
 
+def _upsert_repo_seen(db: sqlite3.Connection, repo: dict, now_iso: str) -> None:
+    existing_by_github_id = db.execute(
+        "SELECT id FROM repos_seen WHERE github_repo_id = ?",
+        (repo["id"],),
+    ).fetchone()
+
+    if existing_by_github_id is not None:
+        db.execute(
+            """
+            UPDATE repos_seen
+            SET full_name = ?,
+                last_scan_at = ?,
+                star_count_at_last_scan = ?
+            WHERE id = ?
+            """,
+            (
+                repo["full_name"],
+                now_iso,
+                repo.get("stargazers_count", 0),
+                existing_by_github_id["id"],
+            ),
+        )
+        return
+
+    db.execute(
+        """
+        INSERT INTO repos_seen (full_name, github_repo_id, first_seen_at, last_scan_at, star_count_at_last_scan)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(full_name) DO UPDATE SET
+            last_scan_at = excluded.last_scan_at,
+            star_count_at_last_scan = excluded.star_count_at_last_scan,
+            github_repo_id = COALESCE(repos_seen.github_repo_id, excluded.github_repo_id)
+        """,
+        (repo["full_name"], repo["id"], now_iso, now_iso, repo.get("stargazers_count", 0)),
+    )
+
+
 def scan(
     db: sqlite3.Connection,
     config: Settings,
@@ -44,18 +81,9 @@ def scan(
     for repo in repos:
         candidate = compute_velocity(repo, db, client, config)
 
-        # Always upsert star count so next run's delta is accurate
-        db.execute(
-            """
-            INSERT INTO repos_seen (full_name, github_repo_id, first_seen_at, last_scan_at, star_count_at_last_scan)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(full_name) DO UPDATE SET
-                last_scan_at = excluded.last_scan_at,
-                star_count_at_last_scan = excluded.star_count_at_last_scan,
-                github_repo_id = COALESCE(repos_seen.github_repo_id, excluded.github_repo_id)
-            """,
-            (repo["full_name"], repo["id"], now_iso, now_iso, repo.get("stargazers_count", 0)),
-        )
+        # Always upsert star count so next run's delta is accurate.
+        # GitHub's numeric repo id is stable across repo renames/transfers.
+        _upsert_repo_seen(db, repo, now_iso)
         db.commit()
 
         if candidate is not None:
