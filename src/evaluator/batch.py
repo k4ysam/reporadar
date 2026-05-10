@@ -11,19 +11,6 @@ from src.models import Candidate, Evaluation, HackathonCandidate
 _log = logging.getLogger(__name__)
 
 
-def _llm_calls_today(db: sqlite3.Connection, provider_name: str) -> int:
-    row = db.execute(
-        "SELECT COUNT(*) FROM api_calls WHERE service = ? AND called_at >= date('now')",
-        (provider_name,),
-    ).fetchone()
-    return row[0] if row else 0
-
-
-def _budget_remaining(db: sqlite3.Connection, provider: LLMProvider, config: Settings) -> int:
-    used = _llm_calls_today(db, provider.name)
-    return max(config.llm_daily_limit - used, 0)
-
-
 def evaluate_candidates(
     candidates: list[Candidate],
     provider: LLMProvider,
@@ -34,12 +21,7 @@ def evaluate_candidates(
 ) -> list[Evaluation]:
     from src.evaluator.evaluator import evaluate_candidate
 
-    budget = _budget_remaining(db, provider, config)
-    if budget <= 0:
-        _log.warning("%s daily limit reached. Skipping repo evaluation.", provider.name)
-        return []
-
-    allowed = min(config.max_evaluations_per_run, budget)
+    allowed = config.max_evaluations_per_run
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     recently_evaluated = {
@@ -73,12 +55,7 @@ def evaluate_hackathon_candidates(
 ) -> list[Evaluation]:
     from src.evaluator.evaluator import evaluate_hackathon
 
-    budget = _budget_remaining(db, provider, config)
-    if budget <= 0:
-        _log.warning("%s daily limit reached. Skipping hackathon evaluation.", provider.name)
-        return []
-
-    allowed = min(config.max_evaluations_per_run, budget)
+    allowed = config.max_evaluations_per_run
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     recently = {

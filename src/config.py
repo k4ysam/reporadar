@@ -30,7 +30,6 @@ class Settings(BaseModel):
     gemini_model: str = "gemini-2.0-flash"
     openai_model: str = "gpt-5.4-mini"
     max_evaluations_per_run: int = 5
-    llm_daily_limit: int = 20
 
     # --- output ---
     db_path: str = "reporadar.db"
@@ -49,10 +48,6 @@ class Settings(BaseModel):
         if self.llm_provider == "openai":
             return self.openai_model
         return self.gemini_model
-
-    @property
-    def gemini_daily_limit(self) -> int:
-        return self.llm_daily_limit
 
     @field_validator("gh_token")
     @classmethod
@@ -104,10 +99,6 @@ class Settings(BaseModel):
             gemini_model=os.environ.get("GEMINI_MODEL") or os.environ.get("LLM_MODEL", "gemini-2.0-flash"),
             openai_model=os.environ.get("OPENAI_MODEL") or os.environ.get("LLM_MODEL", "gpt-5.4-mini"),
             max_evaluations_per_run=int(os.environ.get("MAX_EVALUATIONS_PER_RUN", "5")),
-            llm_daily_limit=int(
-                os.environ.get("LLM_DAILY_LIMIT")
-                or os.environ.get("GEMINI_DAILY_LIMIT", "20")
-            ),
 
             db_path=os.environ.get("DB_PATH", "reporadar.db"),
             output_dir=os.environ.get("OUTPUT_DIR", "output"),

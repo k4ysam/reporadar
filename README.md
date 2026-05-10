@@ -49,7 +49,7 @@ Pings GitHub, your chosen LLM, and confirms the output directory is writable. Re
 ```bash
 python -m src scan-repos        # GitHub Search API: rising repos → repos_seen
 python -m src scan-hackathons   # Devpost scraper → hackathon_projects
-python -m src evaluate          # LLM-evaluate any unevaluated rows (respects daily budget)
+python -m src evaluate          # LLM-evaluate any unevaluated rows
 python -m src run               # Scan/evaluate repos + hackathons, then render the top candidate
 python -m src serve             # Read-only monitoring dashboard (http://localhost:8000)
 python -m src daemon            # APScheduler daemon — fires daily at SCHEDULE_HOUR ±jitter
@@ -62,7 +62,7 @@ A successful `run` prints the saved post id and the local image path(s). The ima
 ```
 src/
 ├── config.py           Settings.from_env(), validates LLM key matches provider
-├── db.py               sqlite3 conn, init_db, log_api_call (per-provider budget tracking)
+├── db.py               sqlite3 conn, init_db, log_api_call (per-provider call tracking)
 ├── models.py           Pydantic frozen contracts: Candidate, HackathonCandidate, Evaluation, Caption, RenderResult, SavedPost
 ├── llm/
 │   └── provider.py     LLMProvider protocol + ClaudeProvider, GeminiProvider, OpenAIProvider, get_provider(settings)
@@ -71,7 +71,7 @@ src/
 │   └── devpost/        BeautifulSoup scraper, robots.txt-respectful, rate-limited
 ├── evaluator/
 │   ├── evaluator.py    evaluate_candidate (repo) + evaluate_hackathon
-│   ├── batch.py        Daily budget guard, 7-day dedup, per-candidate isolation
+│   ├── batch.py        7-day dedup, per-run cap, per-candidate isolation
 │   ├── prompts.py      REPO_SYSTEM_PROMPT + HACKATHON_SYSTEM_PROMPT
 │   └── fetcher.py      README + commits + issues for repo eval
 ├── caption/
