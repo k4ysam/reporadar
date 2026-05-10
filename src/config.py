@@ -67,8 +67,10 @@ class Settings(BaseModel):
             raise ValueError("LLM_PROVIDER=claude requires ANTHROPIC_API_KEY")
         if self.llm_provider == "gemini" and not self.gemini_api_key:
             raise ValueError("LLM_PROVIDER=gemini requires GEMINI_API_KEY")
-        if self.llm_provider == "openai" and not self.openai_api_key:
-            raise ValueError("LLM_PROVIDER=openai requires OPENAI_API_KEY")
+        # OPENAI_API_KEY is always required: image generation uses OpenAI
+        # regardless of which provider drives evaluation/caption text.
+        if not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY is required for image generation")
         return self
 
     @classmethod

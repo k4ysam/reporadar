@@ -52,12 +52,14 @@ def test_build_repo_alt_text_includes_repo_headline_and_metrics():
 def test_build_repo_linkedin_package_returns_reviewable_payload(tmp_path):
     provider = MagicMock()
     provider.generate.return_value = "zerodb is getting attention from backend developers."
+    image_client = MagicMock()
     render_result = RenderResult(media_type="single", paths=[str(tmp_path / "poster.jpg")])
 
     with patch("src.linkedin.package.render_linkedin_repo_poster", return_value=render_result) as render:
         package = build_repo_linkedin_package(
             _eval(),
             provider,
+            image_client,
             tmp_path,
             language="Python",
             topics=["kv", "storage"],

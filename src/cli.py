@@ -340,6 +340,7 @@ def cmd_linkedin_preview(args, settings, db: sqlite3.Connection) -> int:
     from src.linkedin.package import build_repo_linkedin_package
     from src.llm.provider import get_provider
     from src.logger import get_logger
+    from src.render.image_gen import OpenAIImageClient
 
     run_id = _start_run(db)
     log = get_logger("reporadar.linkedin-preview", run_id)
@@ -350,9 +351,13 @@ def cmd_linkedin_preview(args, settings, db: sqlite3.Connection) -> int:
             include_skipped=args.include_skipped,
         )
         provider = get_provider(settings, db, run_id)
+        image_client = OpenAIImageClient(
+            db, run_id, settings.openai_api_key, size="1024x1536"
+        )
         package = build_repo_linkedin_package(
             evaluation,
             provider,
+            image_client,
             settings.output_dir,
             language=args.language,
             topics=args.topics,

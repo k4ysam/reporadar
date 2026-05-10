@@ -320,9 +320,9 @@ Prompt requirements:
 
 ### Success Criteria
 
-- [x] Generator returns text, not a `Caption`, because LinkedIn commentary does not need hook/body/cta separation.
-- [x] Unit tests verify the provider prompt includes repo URL, stars, growth, summary, why interesting, and LinkedIn-specific constraints.
-- [x] Retry behavior exists for empty/invalid output if the implementation chooses structured JSON; if plain text, test that empty output raises or retries.
+- [ ] Generator returns text, not a `Caption`, because LinkedIn commentary does not need hook/body/cta separation.
+- [ ] Unit tests verify the provider prompt includes repo URL, stars, growth, summary, why interesting, and LinkedIn-specific constraints.
+- [ ] Retry behavior exists for empty/invalid output if the implementation chooses structured JSON; if plain text, test that empty output raises or retries.
 
 ---
 
@@ -415,9 +415,9 @@ Keep the existing Instagram card styles unchanged.
 
 ### Success Criteria
 
-- [x] Renderer tests mock Playwright and verify `render_linkedin_repo_poster` returns a single image path.
-- [x] Rendered HTML contains headline, repo name, stars, and brand.
-- [x] Existing repo/hackathon renderer tests still pass.
+- [ ] Renderer tests mock Playwright and verify `render_linkedin_repo_poster` returns a single image path.
+- [ ] Rendered HTML contains headline, repo name, stars, and brand.
+- [ ] Existing repo/hackathon renderer tests still pass.
 
 ---
 
@@ -492,9 +492,9 @@ def build_repo_alt_text(evaluation: Evaluation, headline: str) -> str:
 
 ### Success Criteria
 
-- [x] Unit tests assert package includes commentary, image path, alt text, repo URL, and `source_name`.
-- [x] Package builder does not write to the database.
-- [x] Package builder uses existing evaluation fields only.
+- [ ] Unit tests assert package includes commentary, image path, alt text, repo URL, and `source_name`.
+- [ ] Package builder does not write to the database.
+- [ ] Package builder uses existing evaluation fields only.
 
 ---
 
@@ -552,9 +552,9 @@ This is not a DB migration and keeps review artifacts colocated with images.
 
 ### Success Criteria
 
-- [x] CLI command can generate a LinkedIn package for a mocked/latest repo evaluation.
-- [x] Output includes everything needed to manually post on LinkedIn.
-- [x] No LinkedIn network call occurs.
+- [ ] CLI command can generate a LinkedIn package for a mocked/latest repo evaluation.
+- [ ] Output includes everything needed to manually post on LinkedIn.
+- [ ] No LinkedIn network call occurs.
 
 ---
 

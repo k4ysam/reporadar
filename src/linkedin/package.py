@@ -6,6 +6,7 @@ from pathlib import Path
 from src.caption.linkedin import generate_repo_linkedin_commentary
 from src.llm.provider import LLMProvider
 from src.models import Evaluation, LinkedInPostPackage
+from src.render.image_gen import OpenAIImageClient
 from src.render.renderer import render_linkedin_repo_poster
 
 
@@ -47,6 +48,7 @@ def build_repo_alt_text(evaluation: Evaluation, headline: str) -> str:
 def build_repo_linkedin_package(
     evaluation: Evaluation,
     provider: LLMProvider,
+    image_client: OpenAIImageClient,
     output_dir: str | Path,
     *,
     language: str | None = None,
@@ -65,6 +67,7 @@ def build_repo_linkedin_package(
     render = render_linkedin_repo_poster(
         evaluation,
         output_dir,
+        image_client,
         headline=headline,
         language=language,
         topics=topics,
