@@ -73,7 +73,7 @@ def render_linkedin_repo_poster(
     window_hours: int = 72,
     file_stem: str | None = None,
 ) -> RenderResult:
-    """Tall LinkedIn-aspect poster (1024x1536) generated via OpenAI gpt-image-1.
+    """Tall LinkedIn-aspect poster (1024x1536) generated via OpenAI gpt-image-2.
 
     The image_client should be configured with size='1024x1536' for proper
     LinkedIn aspect; callers in src/cli.py do this.

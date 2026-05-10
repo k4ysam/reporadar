@@ -22,7 +22,7 @@ class OpenAIImageClient:
         db: sqlite3.Connection,
         run_id: str,
         api_key: str,
-        model: str = "gpt-image-1",
+        model: str = "gpt-image-2",
         size: str = "1024x1024",
     ):
         from openai import OpenAI
