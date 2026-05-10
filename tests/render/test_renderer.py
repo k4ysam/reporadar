@@ -13,9 +13,14 @@ from src.models import Caption, Evaluation, HackathonCandidate
 from src.render.image_gen import OpenAIImageClient
 from src.render.image_prompt import (
     build_hackathon_image_prompt,
+    build_linkedin_repo_image_prompt,
     build_repo_image_prompt,
 )
-from src.render.renderer import render_hackathon_card, render_repo_card
+from src.render.renderer import (
+    render_hackathon_card,
+    render_linkedin_repo_poster,
+    render_repo_card,
+)
 
 _VALID_1X1_PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
@@ -91,6 +96,22 @@ def test_build_hackathon_image_prompt_includes_headline_and_prize():
     assert "REPORADAR" in prompt
 
 
+def test_build_linkedin_repo_image_prompt_includes_stats_and_topics():
+    prompt = build_linkedin_repo_image_prompt(
+        _eval(),
+        headline="zerodb turns local files into an agent memory layer",
+        language="Python",
+        topics=["kv", "storage"],
+    )
+    assert "ZERODB TURNS LOCAL FILES INTO AN AGENT MEMORY LAYER" in prompt
+    assert "+420 STARS" in prompt
+    assert "+380% GROWTH" in prompt
+    assert "awesome-co/zerodb" in prompt
+    assert "Python" in prompt
+    assert "kv" in prompt
+    assert "REPORADAR" in prompt
+
+
 def test_render_repo_card_calls_openai_and_writes_jpeg(tmp_path, tmp_db, mock_run_id, monkeypatch):
     _seed_run(tmp_db, mock_run_id)
     client_mock = _mock_openai(monkeypatch)
@@ -141,6 +162,32 @@ def test_render_hackathon_card_returns_single_image(tmp_path, tmp_db, mock_run_i
     assert len(result.paths) == 1
     assert Path(result.paths[0]).exists()
     assert client_mock.images.generate.call_count == 1
+
+
+def test_render_linkedin_repo_poster_uses_openai_and_tall_aspect(tmp_path, tmp_db, mock_run_id, monkeypatch):
+    _seed_run(tmp_db, mock_run_id)
+    client_mock = _mock_openai(monkeypatch)
+    out_dir = tmp_path / "cards"
+
+    image_client = OpenAIImageClient(tmp_db, mock_run_id, "sk-test", size="1024x1536")
+    result = render_linkedin_repo_poster(
+        _eval(),
+        out_dir,
+        image_client,
+        headline="zerodb turns local files into an agent memory layer",
+        language="Python",
+        topics=["kv", "storage"],
+    )
+
+    assert result.media_type == "single"
+    assert len(result.paths) == 1
+    assert Path(result.paths[0]).name.startswith("linkedin_repo_")
+
+    client_mock.images.generate.assert_called_once()
+    call_kwargs = client_mock.images.generate.call_args.kwargs
+    assert call_kwargs["size"] == "1024x1536"
+    assert "ZERODB TURNS LOCAL FILES" in call_kwargs["prompt"]
+    assert "REPORADAR" in call_kwargs["prompt"]
 
 
 def test_image_client_logs_failure(tmp_path, tmp_db, mock_run_id, monkeypatch):

@@ -7,6 +7,7 @@ from src.models import Caption, Evaluation, HackathonCandidate, RenderResult
 from src.render.image_gen import OpenAIImageClient
 from src.render.image_prompt import (
     build_hackathon_image_prompt,
+    build_linkedin_repo_image_prompt,
     build_repo_image_prompt,
 )
 
@@ -57,5 +58,36 @@ def render_hackathon_card(
     stem = file_stem or _safe_stem(candidate.project_name)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     target = out / f"hackathon_{stem}_{timestamp}.jpg"
+    image_client.generate(prompt, target)
+    return RenderResult(media_type="single", paths=[str(target)])
+
+
+def render_linkedin_repo_poster(
+    evaluation: Evaluation,
+    output_dir: str | Path,
+    image_client: OpenAIImageClient,
+    *,
+    headline: str,
+    language: str | None = None,
+    topics: list[str] | None = None,
+    window_hours: int = 72,
+    file_stem: str | None = None,
+) -> RenderResult:
+    """Tall LinkedIn-aspect poster (1024x1536) generated via OpenAI gpt-image-1.
+
+    The image_client should be configured with size='1024x1536' for proper
+    LinkedIn aspect; callers in src/cli.py do this.
+    """
+    out = _ensure_output_dir(output_dir)
+    prompt = build_linkedin_repo_image_prompt(
+        evaluation,
+        headline=headline,
+        language=language,
+        topics=topics,
+    )
+
+    stem = file_stem or _safe_stem(evaluation.full_name)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    target = out / f"linkedin_repo_{stem}_{timestamp}.jpg"
     image_client.generate(prompt, target)
     return RenderResult(media_type="single", paths=[str(target)])

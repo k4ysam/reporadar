@@ -71,6 +71,52 @@ def build_hackathon_image_prompt(
     )
 
 
+def build_linkedin_repo_image_prompt(
+    evaluation: Evaluation,
+    *,
+    headline: str,
+    language: str | None = None,
+    topics: list[str] | None = None,
+) -> str:
+    """Tall LinkedIn-aspect (~2:3) poster prompt for repo posts.
+
+    Same Evolving-AI poster aesthetic as the square repo card, but the
+    composition stretches vertically with the headline filling the upper
+    third and stats/sub-context occupying a stacked lower band.
+    """
+    repo_short = evaluation.full_name.split("/")[-1]
+    sub_context_parts = [evaluation.full_name]
+    if language:
+        sub_context_parts.append(language)
+    topic_list = [t for t in (topics or []) if t][:3]
+    sub_context = "  ·  ".join(sub_context_parts)
+    topic_line = "  ·  ".join(topic_list) if topic_list else ""
+
+    stats_parts: list[str] = []
+    if evaluation.stars_48h:
+        stats_parts.append(f"+{evaluation.stars_48h} STARS")
+    if evaluation.growth_pct:
+        stats_parts.append(f"+{int(evaluation.growth_pct)}% GROWTH")
+    stats_line = "  ·  ".join(stats_parts) if stats_parts else "TRACKED ON GITHUB"
+
+    imagery = _imagery_for_repo(evaluation, language)
+    headline_text = (headline or evaluation.summary or "").strip()[:110].upper()
+
+    return (
+        f"{_BASE_STYLE}\n\n"
+        f"Aspect: tall LinkedIn poster (2:3). The headline fills the upper third; "
+        f"a stacked stats band sits in the lower third.\n\n"
+        f"Imagery: {imagery}. The visual should evoke the project's purpose "
+        f"({_short_summary(evaluation.summary)}).\n\n"
+        f'Headline (rendered legibly, very large, all-caps, sans-serif, top-center, multi-line allowed): "{headline_text}"\n'
+        f'Stats band (smaller, mid-bottom, single line, all-caps): "{stats_line}"\n'
+        f'Sub-context (small, bottom-left, single line): "{sub_context}"\n'
+        + (f'Topic badges (small, lower band, comma-separated): "{topic_line}"\n' if topic_line else "")
+        + f'Brand mark (small, bottom-right, single line): "{_BRAND}"\n\n'
+        f"Subject hint: open-source project named {repo_short}."
+    )
+
+
 def _headline(caption: Caption, fallback: str) -> str:
     text = (caption.hook or fallback or "").strip()
     return text[:90].upper()

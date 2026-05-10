@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 
 def _start_run(db: sqlite3.Connection) -> str:
@@ -29,6 +31,77 @@ def _finish_run(db: sqlite3.Connection, run_id: str, error: str | None = None) -
             (datetime.now(timezone.utc).isoformat(), run_id),
         )
     db.commit()
+
+
+def _safe_filename(value: str) -> str:
+    safe = "".join(c if c.isalnum() or c in ("-", "_") else "-" for c in value).strip("-").lower()
+    return safe[:80] or "linkedin-post"
+
+
+def _latest_repo_evaluation(
+    db: sqlite3.Connection,
+    *,
+    evaluation_id: int | None = None,
+    include_skipped: bool = False,
+):
+    from src.models import Evaluation
+
+    clauses = ["e.content_type = 'repo'", "e.repo_id IS NOT NULL"]
+    params: list[object] = []
+    if evaluation_id is not None:
+        clauses.append("e.id = ?")
+        params.append(evaluation_id)
+    elif not include_skipped:
+        clauses.append("e.skip = 0")
+
+    row = db.execute(
+        f"""
+        SELECT
+            e.id,
+            e.repo_id,
+            e.summary,
+            e.why_interesting,
+            e.audience,
+            e.novelty_score,
+            e.explainability_score,
+            e.overall_score,
+            e.skip,
+            e.growth_pct,
+            e.llm_provider,
+            r.full_name
+        FROM evaluations e
+        JOIN repos_seen r ON r.id = e.repo_id
+        WHERE {" AND ".join(clauses)}
+        ORDER BY e.id DESC
+        LIMIT 1
+        """,
+        params,
+    ).fetchone()
+    if row is None:
+        if evaluation_id is not None:
+            raise RuntimeError(f"No repo evaluation found for evaluation id {evaluation_id}.")
+        if include_skipped:
+            raise RuntimeError("No repo evaluation found. Run `python -m src evaluate` first.")
+        raise RuntimeError(
+            "No non-skipped repo evaluation found. Run `python -m src evaluate` first, "
+            "or pass --include-skipped to preview a skipped evaluation."
+        )
+
+    return Evaluation(
+        content_type="repo",
+        repo_id=row["repo_id"],
+        full_name=row["full_name"],
+        summary=row["summary"] or "No summary available.",
+        why_interesting=row["why_interesting"] or "No reasoning available.",
+        audience=row["audience"] or "Developers",
+        novelty_score=float(row["novelty_score"] or 1.0),
+        explainability_score=float(row["explainability_score"] or 1.0),
+        overall_score=float(row["overall_score"] or 1.0),
+        skip=bool(row["skip"]),
+        stars_48h=0,
+        growth_pct=float(row["growth_pct"] or 0.0),
+        llm_provider=row["llm_provider"],
+    )
 
 
 def cmd_scan_repos(args, settings, db: sqlite3.Connection) -> int:
@@ -263,6 +336,58 @@ def cmd_verify_env(args, settings, db: sqlite3.Connection) -> int:
     return 0
 
 
+def cmd_linkedin_preview(args, settings, db: sqlite3.Connection) -> int:
+    from src.linkedin.package import build_repo_linkedin_package
+    from src.llm.provider import get_provider
+    from src.logger import get_logger
+    from src.render.image_gen import OpenAIImageClient
+
+    run_id = _start_run(db)
+    log = get_logger("reporadar.linkedin-preview", run_id)
+    try:
+        evaluation = _latest_repo_evaluation(
+            db,
+            evaluation_id=args.evaluation_id,
+            include_skipped=args.include_skipped,
+        )
+        provider = get_provider(settings, db, run_id)
+        image_client = OpenAIImageClient(
+            db, run_id, settings.openai_api_key, size="1024x1536"
+        )
+        package = build_repo_linkedin_package(
+            evaluation,
+            provider,
+            image_client,
+            settings.output_dir,
+            language=args.language,
+            topics=args.topics,
+            window_hours=settings.velocity_window_hours,
+        )
+
+        out_dir = Path(settings.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        json_path = out_dir / f"linkedin_{_safe_filename(package.source_name)}_{timestamp}.json"
+        json_path.write_text(json.dumps(package.model_dump(), indent=2) + "\n", encoding="utf-8")
+
+        _finish_run(db, run_id)
+        print("\nLinkedIn commentary:\n")
+        print(package.commentary)
+        print("\nImage paths:")
+        for path in package.image_paths:
+            print(f"  {path}")
+        print("\nAlt text:")
+        print(package.alt_text)
+        print(f"\nRepo URL: {package.repo_url}")
+        print(f"JSON package: {json_path}")
+        return 0
+    except Exception as exc:
+        _finish_run(db, run_id, error=str(exc))
+        log.error("LinkedIn preview failed: %s", exc)
+        print(f"FAILED: {exc}", file=sys.stderr)
+        return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="reporadar", description="RepoRadar pipeline")
     sub = parser.add_subparsers(dest="command")
@@ -281,6 +406,22 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("daemon", help="Start the APScheduler daemon")
     sub.add_parser("verify-env", help="Ping all configured external services")
+
+    linkedin_p = sub.add_parser("linkedin-preview", help="Generate a manual-review LinkedIn post package")
+    linkedin_p.add_argument("--evaluation-id", type=int, default=None, help="Specific repo evaluation id")
+    linkedin_p.add_argument("--language", default=None, help="Optional language label for the poster")
+    linkedin_p.add_argument(
+        "--topic",
+        action="append",
+        dest="topics",
+        default=None,
+        help="Optional topic badge; repeat for multiple topics",
+    )
+    linkedin_p.add_argument(
+        "--include-skipped",
+        action="store_true",
+        help="Allow previewing the latest skipped repo evaluation",
+    )
 
     # legacy aliases
     sub.add_parser("scan", help="Alias for scan-repos")
@@ -311,6 +452,7 @@ def main(argv: list[str] | None = None) -> int:
         "serve": cmd_serve,
         "daemon": cmd_daemon,
         "verify-env": cmd_verify_env,
+        "linkedin-preview": cmd_linkedin_preview,
     }
     return dispatch[args.command](args, settings, db)
 
