@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RepoRadar — {{ today }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>RepoRadar</h1>
+    <span class="date">{{ today }}</span>
+    <span class="ro-pill">read-only · posts saved locally for review</span>
+  </header>
+
+  <main>
+    <section>
+      <h2>Posts awaiting review <span class="count">{{ posts|length }}</span></h2>
+      {% if posts %}
+        {% for p in posts %}
+        <article class="post-card">
+          <div class="post-image">
+            {% if p.first_path_basename %}
+              <a href="{{ url_for('media', filename=p.first_path_basename) }}" target="_blank" rel="noopener">
+                <img src="{{ url_for('media', filename=p.first_path_basename) }}"
+                     alt="{{ p.first_alt_text or 'post poster image' }}">
+              </a>
+              {% if p.first_image_dims %}<div class="image-dims">{{ p.first_image_dims }}</div>{% endif %}
+              {% if p.slide_count > 1 %}<div class="image-dims">+{{ p.slide_count - 1 }} more</div>{% endif %}
+            {% else %}
+              <div class="no-image">no image</div>
+            {% endif %}
+          </div>
+          <div class="post-body">
+            <div class="post-header">
+              <span class="status status-{{ p.status }}">{{ p.status }}</span>
+              <span class="channel-pill channel-{{ p.channel }}">{{ p.channel }}</span>
+              {% if p.subject_url %}
+                <a class="repo-name" href="{{ p.subject_url }}" target="_blank" rel="noopener">{{ p.name }}</a>
+              {% else %}
+                <span class="repo-name">{{ p.name }}</span>
+              {% endif %}
+              <span class="kind">{{ p.character_count }} chars</span>
+              {% if p.updated_at %}<span class="kind">{{ p.updated_at }}</span>{% endif %}
+            </div>
+
+            {% if p.summary %}
+              <p class="summary"><strong>Summary:</strong> {{ p.summary }}</p>
+            {% endif %}
+
+            {% if p.caption %}
+              <details class="caption-block" open>
+                <summary>Caption ({{ p.content_format or 'text' }})</summary>
+                <pre class="caption">{{ p.caption }}</pre>
+              </details>
+            {% endif %}
+
+            {% if p.hashtags %}
+              <div class="hashtags">
+                {% for tag in p.hashtags %}<span class="hashtag">#{{ tag }}</span>{% endfor %}
+              </div>
+            {% endif %}
+
+            {% if p.source_links %}
+              <div class="source-links">
+                <strong>Links:</strong>
+                {% for link in p.source_links %}
+                  <a href="{{ link }}" target="_blank" rel="noopener">{{ link }}</a>{% if not loop.last %} · {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% if p.first_path %}
+              <div class="post-meta">
+                <code>{{ p.first_path }}</code>
+              </div>
+            {% endif %}
+
+            {% if p.review_notes %}
+              <div class="review-notes"><strong>Validation:</strong> {{ p.review_notes }}</div>
+            {% endif %}
+
+            {% if p.external_post_url %}
+              <div class="post-meta">Posted at: <a href="{{ p.external_post_url }}" target="_blank" rel="noopener">{{ p.external_post_url }}</a></div>
+            {% endif %}
+
+            {% if p.error_message %}
+              <div class="error-msg">{{ p.error_message }}</div>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      {% else %}
+        <p class="empty">No posts yet.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Recent evaluations <span class="count">{{ evaluations|length }}</span></h2>
+      {% if evaluations %}
+        {% for ev in evaluations %}
+        <div class="card">
+          <div class="card-header">
+            {% if ev.url %}<a href="{{ ev.url }}" target="_blank" rel="noopener" class="repo-name">{{ ev.name }}</a>{% else %}<span class="repo-name">{{ ev.name }}</span>{% endif %}
+            <span class="kind">{{ ev.content_type }}</span>
+            <div class="scores">
+              <span class="score {{ score_class(ev.novelty_score) }}" title="Novelty">N {{ ev.novelty_score }}</span>
+              <span class="score {{ score_class(ev.explainability_score) }}" title="Explainability">E {{ ev.explainability_score }}</span>
+              <span class="score {{ score_class(ev.overall_score) }}" title="Overall">⭐ {{ ev.overall_score }}</span>
+            </div>
+            {% if ev.skip %}<span class="status status-rejected">skip</span>{% endif %}
+            <span class="kind">{{ ev.llm_provider }}</span>
+          </div>
+          {% if ev.growth_pct %}<div class="stat-line">+{{ ev.growth_pct | int }}%</div>{% endif %}
+          <p class="summary">{{ ev.summary }}</p>
+          <p class="why"><strong>Why now:</strong> {{ ev.why_interesting }}</p>
+          <p class="audience"><strong>For:</strong> {{ ev.audience }}</p>
+          <div class="card-footer">{{ ev.evaluated_at }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <p class="empty">No evaluations yet — run <code>python -m src evaluate</code></p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>Scanned repos today <span class="count">{{ scans|length }}</span></h2>
+      {% if scans %}
+      <table>
+        <thead>
+          <tr><th>Repo</th><th class="num">Stars</th><th class="num">Growth</th><th>First seen</th><th>Last scan</th></tr>
+        </thead>
+        <tbody>
+          {% for row in scans %}
+          <tr>
+            <td><a href="{{ row.github_url }}" target="_blank" rel="noopener">{{ row.full_name }}</a></td>
+            <td class="num">{{ row.stars }}</td>
+            <td class="num">
+              {% if row.growth_pct %}
+                <span class="badge {{ 'badge-high' if row.growth_pct >= 300 else ('badge-mid' if row.growth_pct >= 100 else 'badge-low') }}">+{{ row.growth_pct | int }}%</span>
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ row.first_seen_at }}</td>
+            <td>{{ row.last_scan_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="empty">No scans today.</p>{% endif %}
+    </section>
+
+    <section>
+      <h2>Recent hackathon candidates <span class="count">{{ hackathons|length }}</span></h2>
+      {% if hackathons %}
+      <table>
+        <thead>
+          <tr><th>Project</th><th>Hackathon</th><th>Prize</th><th>GitHub</th><th>Posted?</th><th>Last scan</th></tr>
+        </thead>
+        <tbody>
+          {% for h in hackathons %}
+          <tr>
+            <td><a href="{{ h.devpost_url }}" target="_blank" rel="noopener">{{ h.project_name }}</a></td>
+            <td>{{ h.hackathon_name }}</td>
+            <td>{{ h.prize }}</td>
+            <td>{% if h.github_url %}<a href="{{ h.github_url }}" target="_blank" rel="noopener">link</a>{% else %}—{% endif %}</td>
+            <td>{{ 'yes' if h.already_posted else 'no' }}</td>
+            <td>{{ h.last_scan_at }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="empty">No hackathon candidates yet.</p>{% endif %}
+    </section>
+
+    <section>
+      <h2>Recent runs</h2>
+      {% if runs %}
+      <table>
+        <thead>
+          <tr><th>Run ID</th><th>Status</th><th>Started</th><th>Duration</th><th>Error</th></tr>
+        </thead>
+        <tbody>
+          {% for run in runs %}
+          <tr>
+            <td class="mono">{{ run.run_id_short }}…</td>
+            <td><span class="status status-{{ run.status }}">{{ run.status }}</span></td>
+            <td>{{ run.started_at }}</td>
+            <td>{{ run.duration or '—' }}</td>
+            <td class="error-msg">{{ run.error_message or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<p class="empty">No pipeline runs yet.</p>{% endif %}
+    </section>
+  </main>
+</body>
+</html>

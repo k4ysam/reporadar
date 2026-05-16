@@ -1,6 +1,8 @@
 """APScheduler daemon. Daily fire at SCHEDULE_HOUR ±SCHEDULE_JITTER_MINUTES.
 
-Generates the top post across all content types and saves it locally for human review.
+Per v2 §2.2 the scheduler only emits a RunRequested signal — here that means
+calling `orchestrator.run_pipeline`. The scheduler does not know what the
+pipeline actually does.
 """
 from __future__ import annotations
 
@@ -12,19 +14,16 @@ import time
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from src.config import Settings
-from src.db import get_db, init_db
-from src.pipeline import run_pipeline
+from src.common.config import Settings
+from src.common.db import connect
+from src.orchestrator.pipeline import run_pipeline
 
 _log = logging.getLogger(__name__)
 
 
 def _cron_offset(schedule_hour: int, jitter_minutes: int) -> tuple[int, int]:
-    """Return (cron_hour, cron_minute) shifted `jitter_minutes` before SCHEDULE_HOUR.
-
-    Cron fires `jitter` minutes early; the job then sleeps a random [0, 2*jitter]
-    minutes, yielding an effective post time uniformly in [hour-jitter, hour+jitter].
-    """
+    """Cron fires `jitter` minutes early; the job then sleeps a random [0, 2*jitter]
+    minutes so the effective run time is uniform within ±jitter."""
     total = schedule_hour * 60 - jitter_minutes
     return (total // 60) % 24, total % 60
 
@@ -35,13 +34,11 @@ def _content_job(settings: Settings) -> None:
         _log.info("Jitter sleep: %d min before generating post", delay_minutes)
         time.sleep(delay_minutes * 60)
 
-    db = get_db(settings.db_path)
-    try:
-        run_pipeline(db, settings)
-    except Exception as exc:
-        _log.exception("Pipeline run raised: %s", exc)
-    finally:
-        db.close()
+    with connect(settings) as conn:
+        try:
+            run_pipeline(conn, settings, requested_by="scheduler")
+        except Exception as exc:
+            _log.exception("Pipeline run raised: %s", exc)
 
 
 def build_scheduler(settings: Settings) -> BlockingScheduler:
@@ -62,7 +59,6 @@ def build_scheduler(settings: Settings) -> BlockingScheduler:
 
 
 def run_forever(settings: Settings) -> None:
-    init_db(settings.db_path)
     sched = build_scheduler(settings)
 
     def _shutdown(signum, frame):

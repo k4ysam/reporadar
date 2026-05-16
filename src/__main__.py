@@ -1,4 +1,5 @@
 import sys
-from src.cli import main
+
+from src.operator_api.cli import main
 
 sys.exit(main())
