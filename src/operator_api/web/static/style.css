@@ -1,0 +1,300 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  padding: 2rem 1rem;
+}
+
+main { max-width: 960px; margin: 0 auto; }
+
+header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #30363d;
+}
+header h1 { font-size: 1.5rem; color: #f0883e; }
+.date { color: #8b949e; font-size: 0.9rem; }
+
+section { margin-bottom: 3rem; }
+
+h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b949e;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.count {
+  background: #21262d;
+  color: #58a6ff;
+  border-radius: 10px;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th { text-align: left; padding: 0.5rem 0.75rem; color: #8b949e; font-weight: 500; border-bottom: 1px solid #21262d; }
+td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #161b22; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mono { font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.8rem; color: #8b949e; }
+a { color: #58a6ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Score badges in table */
+.badge { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 600; }
+.badge-high { background: #1a4a1a; color: #3fb950; }
+.badge-mid  { background: #3a2f0a; color: #e3b341; }
+.badge-low  { background: #3a1414; color: #f85149; }
+
+/* Evaluation cards */
+.card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.repo-name { font-size: 1rem; font-weight: 600; }
+.scores { display: flex; gap: 0.4rem; }
+.score {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.score-high { background: #1a4a1a; color: #3fb950; }
+.score-mid  { background: #3a2f0a; color: #e3b341; }
+.score-low  { background: #3a1414; color: #f85149; }
+.score-none { background: #21262d; color: #8b949e; }
+.stat-line  { font-size: 0.8rem; color: #8b949e; margin-bottom: 0.5rem; }
+.summary    { margin-bottom: 0.5rem; line-height: 1.6; }
+.why, .audience { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.3rem; }
+.why strong, .audience strong { color: #c9d1d9; }
+.card-footer { font-size: 0.75rem; color: #484f58; margin-top: 0.75rem; }
+
+/* Status pills */
+.status {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+.status-pending      { background: #1f3044; color: #58a6ff; }
+.status-approved     { background: #1a4a1a; color: #3fb950; }
+.status-rejected     { background: #3a1414; color: #f85149; }
+.status-auto-expired { background: #2d2d0d; color: #e3b341; }
+.status-completed    { background: #1a4a1a; color: #3fb950; }
+.status-running      { background: #1f3044; color: #58a6ff; }
+.status-failed       { background: #3a1414; color: #f85149; }
+
+/* Scan controls */
+.controls-section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.scan-form { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.window-picker { display: flex; align-items: center; gap: 0.35rem; }
+.picker-label { font-size: 0.8rem; color: #8b949e; margin-right: 0.25rem; }
+.day-btn {
+  background: #21262d;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.day-btn:hover { background: #30363d; color: #e6edf3; }
+.day-btn.active { background: #1f3044; color: #58a6ff; border-color: #1f6feb; }
+.scan-btn {
+  background: #238636;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.scan-btn:hover { background: #2ea043; }
+.flash {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+}
+.flash-ok  { background: #1a4a1a; color: #3fb950; }
+.flash-err { background: #3a1414; color: #f85149; }
+
+.empty { color: #8b949e; font-size: 0.9rem; padding: 1rem 0; }
+.empty code { background: #21262d; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.85rem; }
+.error-msg { color: #f85149; font-size: 0.8rem; max-width: 100%; overflow-wrap: anywhere; }
+
+.ro-pill {
+  margin-left: auto;
+  font-size: 0.72rem;
+  background: #1f3044;
+  color: #58a6ff;
+  border-radius: 10px;
+  padding: 0.2rem 0.6rem;
+  letter-spacing: 0.04em;
+}
+.kind {
+  font-size: 0.7rem;
+  color: #8b949e;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #21262d;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+.status-rendered  { background: #2d2d0d; color: #e3b341; }
+.status-uploaded  { background: #1f3044; color: #58a6ff; }
+.status-published { background: #1a4a1a; color: #3fb950; }
+.status-exported  { background: #2d2d0d; color: #e3b341; }
+.status-ready_for_review { background: #2d2d0d; color: #e3b341; }
+.status-manually_posted  { background: #1a4a1a; color: #3fb950; }
+
+/* ── Post cards: posts awaiting review ─────────────────────────────── */
+.post-card {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 1.25rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.post-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  display: block;
+}
+.post-image .no-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #0d1117;
+  border: 1px dashed #30363d;
+  border-radius: 6px;
+  color: #6e7681;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.image-dims {
+  font-size: 0.7rem;
+  color: #6e7681;
+  text-align: center;
+  margin-top: 0.25rem;
+}
+.post-body { min-width: 0; }
+.post-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.channel-pill {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.channel-instagram { background: #4b1e3a; color: #ff7eb6; }
+.channel-linkedin  { background: #0a2540; color: #58a6ff; }
+.caption-block {
+  margin: 0.75rem 0;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+}
+.caption-block summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b949e;
+  user-select: none;
+}
+pre.caption {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  color: #e6edf3;
+  line-height: 1.5;
+}
+.hashtags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.5rem 0;
+}
+.hashtag {
+  font-size: 0.75rem;
+  color: #58a6ff;
+  background: #0d1117;
+  border: 1px solid #1f3044;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+}
+.source-links { font-size: 0.8rem; margin: 0.5rem 0; color: #8b949e; }
+.source-links a { color: #58a6ff; text-decoration: none; }
+.source-links a:hover { text-decoration: underline; }
+.post-meta { font-size: 0.75rem; color: #6e7681; margin-top: 0.25rem; }
+.post-meta code {
+  background: #0d1117;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  border: 1px solid #30363d;
+}
+.review-notes {
+  font-size: 0.8rem;
+  color: #e3b341;
+  background: #2d2d0d;
+  border-left: 3px solid #e3b341;
+  padding: 0.4rem 0.75rem;
+  margin: 0.5rem 0;
+  border-radius: 3px;
+}
+
+@media (max-width: 600px) {
+  .post-card { grid-template-columns: 1fr; }
+}

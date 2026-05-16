@@ -4,84 +4,175 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Discovery + post-generation pipeline for promising open-source projects. Discovers GitHub repos via the Search API + hackathon projects via Devpost scrape, evaluates both pools with a pluggable LLM (Claude, Gemini, or OpenAI), generates captions, and renders 1080×1080 JPEGs via Playwright. **Posts are saved locally for human review** — no automatic upload or publishing. APScheduler daemon runs the combined repo + hackathon pipeline daily.
+Discovery + post-generation pipeline for promising open-source projects. Discovers GitHub repos via the Search API + hackathon projects via Devpost scrape, evaluates both pools with a pluggable LLM (Claude, Gemini, or OpenAI), generates per-channel captions and posters (Instagram 1:1, LinkedIn 2:3), and writes one `posted_repositories` row per selected project. **Posts are saved locally for human review** — no automatic upload or publishing. APScheduler daemon runs the pipeline daily.
+
+The codebase is organized as v2 microservice modules (see `Doc/reporadar_v2_architecture.md`). Each top-level folder under `src/` is one service.
+
+## Service docs — read before changing, update after changing
+
+Every service in `src/` has a dedicated doc under `Doc/services/`. **These are the source of truth for how each service works, what it owns, and how it talks to the rest of the system.**
+
+| Service | Doc |
+|---|---|
+| `src/candidate_intelligence/` | [Doc/services/candidate_intelligence.md](Doc/services/candidate_intelligence.md) |
+| `src/content_generation/` | [Doc/services/content_generation.md](Doc/services/content_generation.md) |
+| `src/publishing/` | [Doc/services/publishing.md](Doc/services/publishing.md) |
+| `src/orchestrator/` | [Doc/services/orchestrator.md](Doc/services/orchestrator.md) |
+| `src/scheduler/` | [Doc/services/scheduler.md](Doc/services/scheduler.md) |
+| `src/operator_api/` | [Doc/services/operator_api.md](Doc/services/operator_api.md) |
+
+Plus an index at [Doc/services/README.md](Doc/services/README.md) with the cross-service map.
+
+**Rules for agents working on this repo:**
+
+1. **Before changing a service**, read its doc. Each doc describes the service's purpose, internal stages, entry points, data ownership, state machine, and what's intentionally out of scope. Understanding these constraints prevents accidentally violating ownership boundaries (e.g. writing to another service's table) or breaking the orchestrator's workflow-only invariant.
+2. **After changing a service**, update its doc *in the same change* so the docs never drift. Update anything affected: source layout, internal pipeline, entry-point signatures, data ownership, state machine, configuration knobs, failure modes, or "out of scope" notes. If your change spans services (e.g. new contract field), update every affected service's doc.
+3. **When adding a new service**, follow the structure of the existing docs and add an entry to `Doc/services/README.md`. Cross-link the new doc from the docs of any service it interacts with.
+4. **When adding a new channel**, no new doc is needed — but update the "Adding a new channel" / channels sections of `Doc/services/content_generation.md`.
+
+If a doc contradicts the code, the code is right; fix the doc in the same change. Treat doc drift as a code review blocker.
 
 ## Commands
 
-All assume venv active and `.env` populated (see `.env.template`).
+All assume `.venv/` active and `.env` populated (see `.env.template`).
 
 ```bash
-python -m src scan-repos        # GitHub Search API → repos_seen
-python -m src scan-hackathons   # Devpost scrape → hackathon_projects
-python -m src evaluate          # LLM-evaluate unevaluated rows
-python -m src run               # Discover + evaluate repos + hackathons, render + save the top post
-python -m src serve             # Read-only monitoring dashboard
-python -m src daemon            # APScheduler daemon
-python -m src verify-env        # Smoke-test all configured external services
+.venv/bin/python migrations/apply.py        # Apply Postgres schema to Supabase
+python -m src scan-repos                    # GitHub Search API → candidate_repository_evaluations
+python -m src scan-hackathons               # Devpost scrape → candidate_repository_evaluations
+python -m src evaluate                      # LLM-evaluate pending candidates
+python -m src run                           # Full pipeline (discover → evaluate → select → generate → render → export)
+python -m src submit <url>                  # Manually submit a GitHub/Devpost URL
+python -m src serve                         # Read-only monitoring dashboard
+python -m src daemon                        # APScheduler daemon
+python -m src verify-env                    # Smoke-test all configured external services
 
-pytest -q                                     # full suite
-pytest tests/sources/github_repos/ -q         # one package
-pytest tests/render/test_renderer.py -q       # one file
+pytest -q                                          # full suite (51 tests, no DB / no network)
+pytest tests/candidate_intelligence/ -q            # one service
+pytest tests/candidate_intelligence/evaluation/ -q # one package
 ```
 
-`reporadar.db` is auto-created from `schema.sql` on every CLI invocation via `init_db()` (idempotent — `CREATE TABLE IF NOT EXISTS`). Rendered images land in `settings.output_dir` (default `output/`).
+The schema lives in `migrations/0001_initial_v2.sql`. The migration runner is idempotent — every CREATE uses `IF NOT EXISTS`. Re-run anytime.
 
-## Architecture
+## Architecture (v2)
 
-**Single SQLite DB underpins four stages: discovery → eval → caption → render.** All stages share `Settings` (`src/config.py`, loaded from `.env` via `Settings.from_env()`). Every CLI invocation creates a UUID `run_id` row in `pipeline_runs`; downstream rows in `evaluations`, `posts`, `api_calls` reference it.
+Services are organized as **modular microservices that talk synchronously via Python imports today** (the event-bus split in `Doc/reporadar_v2_architecture.md` §26 Phase 6 is future work). Each service owns one bounded responsibility and its own JSONB section of the database.
 
-### LLM provider abstraction (`src/llm/provider.py`)
+There are **6 microservices** plus 3 shared infra modules (`common/`, `contracts/`, `ai_gateway/`):
 
-`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider` (anthropic SDK), `GeminiProvider` (google-generativeai SDK), and `OpenAIProvider` (OpenAI SDK Responses API). The default is `openai`. All expose `generate(prompt, system) -> str` and log to `api_calls` with `service` set to the provider name.
+```
+src/
+├── common/                          # Settings, Postgres connection, logger, IDs
+├── contracts/                       # Cross-service Pydantic models (frozen)
+├── ai_gateway/                      # LLM + image-provider adapters
+│
+├── candidate_intelligence/          # Service 1: "what should we post next?"
+│   ├── service.py                   #   top-level: discover_evaluate_and_select
+│   ├── repository.py                #   owns candidate_repository_evaluations
+│   ├── source_adapters/             #   stage 1: discovery
+│   │   ├── github_discovery/
+│   │   ├── devpost_discovery/
+│   │   └── manual_submission.py
+│   ├── enrichment/                  #   stage 2: README + commits + issues
+│   ├── evaluation/                  #   stage 3: LLM scoring
+│   ├── selection/                   #   stage 4: ranking + picking the winner
+│   │   ├── ranking.py
+│   │   └── selector.py
+│   └── deduplication/               #   utility: canonical key derivation
+│
+├── content_generation/              # Service 2: "build the platform-ready post"
+│   ├── service.py                   #   top-level: generate_post_package
+│   ├── text/                        #   stage 1: per-channel text
+│   │   ├── service.py
+│   │   └── channels/{instagram,linkedin}.py
+│   ├── media/                       #   stage 2: per-channel image rendering
+│   │   ├── service.py
+│   │   ├── profile.py               #   ChannelMediaProfile dataclass
+│   │   ├── style.py                 #   shared prompt building blocks
+│   │   └── channels/                #   {instagram,linkedin}.py = profile + prompt
+│   └── packaging/                   #   stage 3: assembly + validation
+│       ├── service.py
+│       └── channels/{instagram,linkedin}.py
+│
+├── publishing/                      # Service 3: writes posted_repositories + sidecars
+├── orchestrator/                    # Service 4: pipeline workflow (no business logic)
+├── scheduler/                       # Service 5: APScheduler daemon
+└── operator_api/                    # Service 6: CLI + Flask dashboard
+```
 
-### Discovery (`src/sources/`)
+(Review Dashboard and Project Registry services from v2 §2 are folded into `operator_api` and `candidate_intelligence` respectively for the MVP.)
 
-- `github_repos/scanner.scan()` — runs two Search API queries (newly-created + recently-pushed within `repo_max_age_days`), computes velocity via `velocity.compute_velocity()`. **Critical invariant:** every search hit gets UPSERTed to `repos_seen` even when below thresholds — that establishes the baseline for next run's delta calc. Brand-new repos fall back to fetching stargazer timestamps to estimate the window-start star count.
-- `devpost/scanner.scan_devpost()` — polite scraper with rate limit + robots.txt check. Filters: must have GitHub link AND prize-winning status (per PRD §1). Non-eligible rows still get UPSERTed for tracking.
+### Key rules
 
-### Evaluation (`src/evaluator/`)
+- **Each service owns its data section.** `candidate_intelligence/repository.py` is the only writer of `candidate_repository_evaluations` (including the `ranking` and `selection` sections, now that Selection is an internal stage). `publishing/repository.py` is the only writer of `posted_repositories`. The dashboard reads via `operator_api/web/queries.py` — never directly across service tables.
+- **Orchestrator contains no business logic.** Three service calls per run:
+  ```python
+  selection = discover_evaluate_and_select(conn, settings, run_id, provider, channels=...)
+  for channel in selection.selected_for_channels:
+      package = generate_post_package(conn, settings, run_id, candidate, evaluation, provider, channel=channel)
+  publish_packages(conn, settings, candidate=..., evaluation=..., selection=..., packages=...)
+  ```
+- **`OPENAI_API_KEY` is always required** even when `LLM_PROVIDER` is `claude` or `gemini`, because image generation goes through `OpenAIImageClient` regardless. `Settings.provider_key_present` enforces this at config-load time.
+- **Discovery upserts every search hit** (eligible or not) to `candidate_repository_evaluations` so the next run has a baseline for delta calc.
+- **Adding a new channel** = adding a new file in three places (one per Content Generation stage):
+  `text/channels/<channel>.py`, `media/channels/<channel>.py` (+ entry in `media/channels/__init__.PROFILES`), `packaging/channels/<channel>.py` (+ entry in `packaging/channels/__init__.VALIDATORS`). No orchestrator change required.
 
-- `batch.evaluate_candidates` (repos) and `batch.evaluate_hackathon_candidates` (hackathons). Both: 7-day dedup, `max_evaluations_per_run` cap, per-candidate exception isolation.
-- `evaluator.evaluate_candidate` builds prompt from `RepoContext` (README + commits + issues). `evaluator.evaluate_hackathon` uses `build_hackathon_prompt` directly (no fetcher).
-- LLM JSON parsing is lenient: strips ```json fences, retries once with "return ONLY valid JSON" if first parse fails.
-- Stores both `raw_response` (canonical) and `claude_raw_response` (legacy column name retained for back-compat with rows from earlier builds).
+### Data model (v2)
 
-### Caption + Render (`src/caption/`, `src/render/`)
+Two JSONB-rich Postgres tables per `Doc/reporadar_database_design.md`:
 
-- `generate_repo_caption` / `generate_hackathon_caption` — provider-agnostic, returns a `Caption` Pydantic model. `Caption.render()` clips to ≤2,200 chars (Instagram caption limit retained as a sane upper bound).
-- `render_repo_card` produces one 1080×1080 JPEG. `render_hackathon_carousel` produces 4 slides (hook → what it does → tech stack → team/links).
-- Templates use Jinja2; CSS targets system fonts so no font binaries shipped. Renderer uses Playwright sync API + Chromium. Tests mock `sync_playwright` so they pass without browser binaries installed.
-- Rendered files persist in `settings.output_dir` for the operator to review.
+```
+candidate_repository_evaluations
+  id, run_id, project_id, canonical_repo_key, source_type, status,
+  source / discovery / github / hackathon / enrichment / deduplication
+  / evaluation / ranking / selection / post_link / audit  (all JSONB)
 
-### Save (`src/publisher/publisher.py`)
+posted_repositories
+  id, project_id, canonical_repo_key, canonical_repo_url,
+  github / hackathon / project_description / source / evaluation_snapshot
+  / ranking_snapshot / post_instances (array of channels) / posting_state / audit
+```
 
-`save_post` is the pipeline's hand-off step: writes the `posts` row at status `rendered`, idempotency-checks against existing rows for the same `repo_id`/`hackathon_id` (UNIQUE constraints back this up — a re-run updates the row in place), and flips the source's `already_posted=1` so subsequent runs skip it. Returns a `SavedPost` carrying `post_id`, `card_paths`, and the rendered caption.
+Plus operational `pipeline_runs` and `api_calls` tables.
 
-There is no upload, no Instagram client, no token management, no retry logic. The operator reviews the local JPEGs plus the `caption` column and posts manually wherever they like.
+`canonical_repo_key` is the universal cross-source identity: `github:owner/repo` or `devpost:<slug>`. `project_id` is derived deterministically from `canonical_repo_key` via SHA-1 (see `src/common/ids.project_id_for`), so the same repo discovered across many runs maps to one project identity without a lookup table.
 
-### Orchestration (`src/pipeline.py`, `src/scheduler/daemon.py`)
+### LLM provider abstraction (`src/ai_gateway/llm/`)
 
-- `run_pipeline` scans repos and hackathon projects in one run, evaluates both pools, then renders/saves the highest-scoring eligible candidate across all content types.
-- Scheduler fires at `SCHEDULE_HOUR:00` then sleeps a random 0..jitter*60 seconds before invoking the combined pipeline.
+`LLM_PROVIDER=claude|gemini|openai` selects between `ClaudeProvider`, `GeminiProvider`, and `OpenAIProvider`. Default is `openai`. All providers expose `generate(prompt, system) -> str` and log to `api_calls` via `_BaseProvider._log_call`.
 
-### Read-only dashboard (`src/web/`)
+### Channels
 
-Shows: posts awaiting review (with caption + local image paths), recent evaluations (both content types), today's repo scans, recent hackathon candidates, recent runs.
+Today `instagram` (1:1, 1024×1024) and `linkedin` (2:3, 1024×1536) are wired. To add another, see the *Adding a new channel* section of [Doc/services/content_generation.md](Doc/services/content_generation.md) — three files (one per Content Generation stage), no orchestrator change.
 
-## Key data model details (`schema.sql`)
+## Database
 
-- `repos_seen.full_name`, `hackathon_projects.devpost_url` are natural keys (UNIQUE). All UPSERTs hit them.
-- `evaluations` has both `repo_id` and `hackathon_id` (one is NULL); `content_type` is the discriminator.
-- `posts.repo_id` / `posts.hackathon_id` are UNIQUE — DB-level idempotency for "one saved post per source".
-- `posts.status` lifecycle: `pending → rendered`, or `failed`.
-- `api_calls` records every LLM/HTTP call for observability. New LLM calls should log via the provider's `_log_call` helper (or directly via `db.log_api_call`) so the dashboard reflects activity.
+Production DB is **Supabase Postgres** via `DATABASE_URL` (transaction-pooler URL on port 6543). The runtime layer is `psycopg 3`; `src/common/db.py` wraps connection + observability logging.
 
-## Models (`src/models.py`)
+`src/common/db.py` opens every connection with **`autocommit=True, prepare_threshold=None`**. Both are mandatory for the Supabase transaction pooler:
 
-All `frozen=True`. Don't mutate; build new instances. `Evaluation.novelty_score / explainability_score / overall_score` are validated `1 ≤ x ≤ 10` at construction.
+- `prepare_threshold=None` disables psycopg's auto-prepare. The pooler reuses backend connections across client transactions; a server-side prepared statement registered on one backend will not exist on the next, producing `psycopg.errors.InvalidSqlStatementName: prepared statement "_pg3_N" does not exist`.
+- `autocommit=True` prevents a single failed statement from leaving the connection stuck in `INTRANS_ERROR`, which would block every subsequent write (including `finish_run`) with `psycopg.errors.InFailedSqlTransaction`.
 
-## Out of scope (deferred from PRD)
+Every repository helper writes single statements and calls `conn.commit()` — those commits are no-ops in autocommit mode (psycopg silently ignores them). If you ever need multi-statement atomicity, wrap the block with `with conn.transaction():`.
 
-- **Auto-publishing to Instagram (or any other platform).** The PRD originally specified end-to-end automation through the IG Graph API; that has been removed in favor of a human review step. To reintroduce, add a publishing module under `src/publisher/` and wire it after `save_post`.
-- **Sandbox trial** (PRD Phase 4 — Docker for CLI tools, Playwright demo screenshots): not implemented.
-- **GitHub trending page scrape** (PRD §1 secondary signal): omitted; PRD risk #1 calls it brittle.
+If the password in `DATABASE_URL` contains reserved URI characters (`@`, `/`, `:`, `#`), URL-encode them (`@` → `%40`) — psycopg parses the URI strictly.
+
+To apply or refresh the schema:
+
+```bash
+.venv/bin/python migrations/apply.py
+```
+
+The migration is idempotent. No `init_db()`-style auto-setup is done on every CLI call any more.
+
+## Contracts (`src/contracts/`)
+
+All `frozen=True`. Don't mutate; build new instances with `.model_copy(update=...)`. `EvaluationScores` fields are validated `1 ≤ x ≤ 10` at construction.
+
+## Out of scope (Phase 6+ in v2 doc)
+
+- **Async event bus** (Redis Streams / RabbitMQ). Today services talk synchronously via Python imports inside the same process.
+- **Dockerized per-service deployment.** Today everything runs in one Python process invoked by the CLI / daemon.
+- **Operator API approve/reject/regenerate endpoints.** Dashboard is read-only; route stubs in `src/operator_api/cli.py` only.
+- **Auto-publishing to Instagram / LinkedIn.** Removed in favor of manual export. To reintroduce, add an adapter under `src/publishing/adapters/` and call it after `export_to_disk` in `publishing/service.py`.
