@@ -3,6 +3,7 @@ requests>=2.31
 pydantic>=2.0
 python-dotenv>=1.0
 flask>=3.0
+gunicorn>=21.2
 psycopg[binary]>=3.2
 
 # llm providers (one of these is required at runtime)
