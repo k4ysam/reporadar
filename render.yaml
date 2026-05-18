@@ -1,0 +1,112 @@
+services:
+  - type: web
+    name: reporadar
+    runtime: python
+    plan: starter
+    region: oregon
+    branch: main
+    autoDeploy: true
+
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: python migrations/apply.py
+    startCommand: gunicorn -w 1 -k gthread --threads 8 --timeout 180 -b 0.0.0.0:$PORT src.operator_api.web.wsgi:app
+
+    healthCheckPath: /
+
+    disk:
+      name: reporadar-output
+      mountPath: /var/data/output
+      sizeGB: 1
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+
+      - key: OUTPUT_DIR
+        value: /var/data/output
+
+      # Discovery
+      - key: GH_TOKEN
+        sync: false
+
+      # LLM provider
+      - key: LLM_PROVIDER
+        value: openai
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-sonnet-4-6
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: OPENAI_MODEL
+        value: gpt-5.4-mini
+      - key: MAX_EVALUATIONS_PER_RUN
+        value: "5"
+
+      # Scanner thresholds
+      - key: VELOCITY_WINDOW_HOURS
+        value: "72"
+      - key: REPO_MAX_AGE_DAYS
+        value: "365"
+      - key: STAR_GROWTH_MIN_PCT
+        value: "50"
+      - key: STAR_BASE_MIN
+        value: "10"
+      - key: MAX_CANDIDATES_PER_RUN
+        value: "15"
+      - key: DEVPOST_MAX_PROJECTS_PER_RUN
+        value: "25"
+
+      # Database (Supabase transaction-pooler URL on port 6543)
+      - key: DATABASE_URL
+        sync: false
+
+      # Scheduling
+      - key: SCHEDULE_HOUR
+        value: "6"
+      - key: SCHEDULE_JITTER_MINUTES
+        value: "15"
+      - key: TIMEZONE
+        value: UTC
+
+      # Publishing — LinkedIn (optional; leave blank for manual-export mode)
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_ACCESS_TOKEN
+        sync: false
+      - key: LINKEDIN_ACTOR_URN
+        sync: false
+      - key: LINKEDIN_API_VERSION
+        value: "202604"
+
+      # Publishing — Instagram Graph API (optional)
+      - key: IG_ACCESS_TOKEN
+        sync: false
+      - key: IG_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: IG_APP_ID
+        sync: false
+      - key: IG_APP_SECRET
+        sync: false
+      - key: IG_API_VERSION
+        value: v21.0
+
+      # Image host — S3-compatible (required for Instagram publishing)
+      - key: IMAGE_HOST_ENDPOINT
+        sync: false
+      - key: IMAGE_HOST_BUCKET
+        sync: false
+      - key: IMAGE_HOST_REGION
+        value: auto
+      - key: IMAGE_HOST_PUBLIC_BASE_URL
+        sync: false
+      - key: IMAGE_HOST_ACCESS_KEY
+        sync: false
+      - key: IMAGE_HOST_SECRET_KEY
+        sync: false
